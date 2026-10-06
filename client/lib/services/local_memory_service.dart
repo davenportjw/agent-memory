@@ -1270,6 +1270,62 @@ class LocalMemoryService {
     return topic;
   }
 
+  /// Evicts a specific topic from local edge cache on-demand.
+  /// Updates Master Index cache flag to false and logs the memory eviction event.
+  bool evictMemoryTopic(String topicId) {
+    if (!_localTopicCache.containsKey(topicId)) {
+      return false;
+    }
+    final topic = _localTopicCache.remove(topicId);
+
+    // Update Master Index entry cache flag
+    final updatedEntries = _masterIndex.entries.map((e) {
+      if (e.topicId == topicId) {
+        return e.copyWith(isCachedLocally: false);
+      }
+      return e;
+    }).toList();
+
+    _masterIndex = _masterIndex.copyWith(entries: updatedEntries);
+    _bootState = _bootState.copyWith(masterIndex: _masterIndex);
+
+    _simulationLogs.insert(
+      0,
+      '[JIT Evict] EVICTED: Removed topic "$topicId" (${topic?.byteSize ?? 0} bytes, ~${topic?.tokenEstimate ?? 0} tokens) from local memory cache.',
+    );
+    notifyListeners();
+    return true;
+  }
+
+  /// Evicts all locally cached topics, restoring local edge memory to base directives.
+  int evictAllLocalTopics() {
+    final count = _localTopicCache.length;
+    if (count == 0) return 0;
+
+    int totalBytes = 0;
+    int totalTokens = 0;
+    for (final topic in _localTopicCache.values) {
+      totalBytes += topic.byteSize;
+      totalTokens += topic.tokenEstimate;
+    }
+
+    _localTopicCache.clear();
+
+    final updatedEntries = _masterIndex.entries.map((e) {
+      return e.copyWith(isCachedLocally: false);
+    }).toList();
+
+    _masterIndex = _masterIndex.copyWith(entries: updatedEntries);
+    _bootState = _bootState.copyWith(masterIndex: _masterIndex);
+
+    _simulationLogs.insert(
+      0,
+      '[JIT Evict All] EVICTED ALL: Purged $count cached topic(s) ($totalBytes bytes, ~$totalTokens tokens) from local memory. Restored to base directives.',
+    );
+    notifyListeners();
+    return count;
+  }
+
   /// Task-Bound Context Window: Injects topic memory during task execution,
   /// then immediately evicts and drops it to keep the context window small.
   Future<T> executeTaskWithBoundContext<T>({

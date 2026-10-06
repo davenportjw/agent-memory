@@ -271,6 +271,7 @@ Continuous verification is maintained across both unit and widget integration te
 | `client/test/quest_progression_test.dart` | Multi-stage dynamic quest tracks across all 3 NPCs, `hideTextIfGenerativeUi` flag toggling, and objective stage advancement | **6/6 PASSING** |
 | `client/test/switching_router_test.dart` | PII regex detection & scrubbing, context limit escalation, multi-hop reasoning, circuit breaker fallback, mode overrides | **7/7 PASSING** |
 | `client/test/a2ui_rendering_test.dart` | Proactive choice tags, visual canvas with Nano Banana 2 Lite telemetry, two-step visual-to-local pipeline, embedded markdown JSON choices extraction, raw JSON code fence stripping, full declarative A2UI JSON parsing, and `hideTextIfGenerativeUi` focus mode | **9/9 PASSING** |
+| `client/test/lorecraft_simple_mode_clarity_test.dart` | Simple vs. Everything mode visual partitioning, dev tool knob filtering, and Edge Model Toggle (`btn_toggle_edge_model`) switching between Gemma 4 int4 and Gemini Nano | **3/3 PASSING** |
 | `client/test/eval_rater_test.dart` | Model comparison matrix, automated eval rater scoring, and rubric standards | **4/4 PASSING** |
 | `server/tests/` | Cloud Run backend, Gemini 3.8 Flash escalation routes, SSE transport | **PASSING** |
 

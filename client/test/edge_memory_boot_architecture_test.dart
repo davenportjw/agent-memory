@@ -85,6 +85,25 @@ void main() {
       // Context must be evicted immediately upon task completion to keep context small
       expect(memoryService.activeTaskContext?.isEvicted, isTrue);
       expect(memoryService.activeTaskContext?.totalContextTokens, 256); // Dropped back to base
+
+      // 3. Manual Eviction / Unclick: Evicts cached topic and restores Master Index flag
+      final evicted = memoryService.evictMemoryTopic('undercity_sluice_bypass');
+      expect(evicted, isTrue);
+      expect(memoryService.localTopicCache.containsKey('undercity_sluice_bypass'), isFalse);
+      final entryEvicted = memoryService.masterIndex.entries
+          .firstWhere((e) => e.topicId == 'undercity_sluice_bypass');
+      expect(entryEvicted.isCachedLocally, isFalse);
+
+      // Evicting an already uncached topic returns false
+      expect(memoryService.evictMemoryTopic('undercity_sluice_bypass'), isFalse);
+
+      // Test evictAllLocalTopics
+      await memoryService.fetchMemoryTopic('undercity_sluice_bypass');
+      await memoryService.fetchMemoryTopic('iron_vanguard_ciphers');
+      expect(memoryService.localTopicCache.length, greaterThanOrEqualTo(2));
+      final clearedCount = memoryService.evictAllLocalTopics();
+      expect(clearedCount, greaterThanOrEqualTo(2));
+      expect(memoryService.localTopicCache.isEmpty, isTrue);
     });
 
     test('Pattern 3: Pre-Emptive Caching (The Predictive Load) caches context on state shift', () async {

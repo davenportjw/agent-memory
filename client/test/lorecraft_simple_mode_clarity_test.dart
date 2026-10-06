@@ -63,7 +63,7 @@ void main() {
       // Top bar: Dev knobs must be hidden
       expect(find.byKey(const Key('btn_revisit_boot_sequence')), findsNothing);
       expect(find.byKey(const Key('btn_open_game_memory_dev_tool')), findsNothing);
-      expect(find.byKey(const Key('btn_toggle_genui_verbosity')), findsNothing);
+      expect(find.byKey(const Key('btn_toggle_edge_model')), findsNothing);
 
       // Top bar: Core quest dossier must remain
       expect(find.byKey(const Key('btn_mission_dossier')), findsOneWidget);
@@ -105,7 +105,7 @@ void main() {
       // Top bar: Dev knobs should now be visible
       expect(find.byKey(const Key('btn_revisit_boot_sequence')), findsOneWidget);
       expect(find.byKey(const Key('btn_open_game_memory_dev_tool')), findsOneWidget);
-      expect(find.byKey(const Key('btn_toggle_genui_verbosity')), findsOneWidget);
+      expect(find.byKey(const Key('btn_toggle_edge_model')), findsOneWidget);
 
       // Faction panel: Cheat steppers should be visible
       expect(find.byKey(const Key('btn_faction_sub_vanguard')), findsOneWidget);
@@ -116,6 +116,51 @@ void main() {
 
       // Right drawer: Canon & Arbiter scorecard should be visible
       expect(find.byType(LoreCraftCanonArbiterCard), findsOneWidget);
+    });
+
+    testWidgets('Tapping edge model toggle button toggles between Gemma 4 and Gemini Nano', (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      modeService.setMode(AppDisplayMode.everything);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LoreCraftStudio(
+              loreService: loreService,
+              isRightDrawerOpen: true,
+              onNavigateToDestination: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initial state: Gemma 4 is active
+      expect(find.byKey(const Key('btn_toggle_edge_model')), findsOneWidget);
+      expect(find.text('EDGE: GEMMA 4'), findsOneWidget);
+      expect(edgeManager.activeEngine, ActiveEdgeEngine.gemma4);
+
+      // Tap to toggle to Gemini Nano
+      await tester.tap(find.byKey(const Key('btn_toggle_edge_model')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('EDGE: GEMINI NANO'), findsOneWidget);
+      expect(edgeManager.selectedEngine, EdgeEngineSelection.geminiNano);
+      expect(edgeManager.activeEngine, ActiveEdgeEngine.geminiNano);
+
+      // Tap again to toggle back to Gemma 4
+      await tester.tap(find.byKey(const Key('btn_toggle_edge_model')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('EDGE: GEMMA 4'), findsOneWidget);
+      expect(edgeManager.selectedEngine, EdgeEngineSelection.gemma4);
+      expect(edgeManager.activeEngine, ActiveEdgeEngine.gemma4);
     });
   });
 }

@@ -240,6 +240,7 @@ In **Simple Mode**, all UI language, telemetry, and cards strictly spotlight the
 ### B. What Goes Behind the Slider (Everything Mode Only)
 The following developer-internal controls, cheat mechanisms, and diagnostic artifacts are hidden in Simple Mode and unlocked in Everything Mode:
 - **Navigation Rail**: Simple Mode restricts the rail to ONLY the 2 core showcase views (`LoreCraft Studio` and `Edge Agent Boot`). Everything Mode unlocks all 8 destinations.
+- **Edge Model Toggle**: The top bar Edge Engine Toggle (`btn_toggle_edge_model`) is revealed in Everything Mode, allowing developers to instantly switch between on-device Gemma 4 int4 (WebGPU / LiteRT) and Gemini Nano (Chrome Built-in Prompt API) with dynamic live model synthesis.
 - **Developer Cheat Knobs**: Faction reputation `+10 / -10` stepper buttons (`btn_faction_sub_*`, `btn_faction_add_*`) are hidden in Simple Mode.
 - **Direct Nav Jump Shortcuts**: The top bar `DEV MEMORY` button and left drawer `INSPECT IN MEMORY STUDIO ➔` shortcut are hidden in Simple Mode.
 - **Arbiter & Scoring Rubrics**: The Canon Arbiter Scorecard card in the Living Lore drawer, the LLM-as-a-rater grading rubric card (`EducationAssessmentCard`) on the boot page, and raw frame budget compliance badges are hidden in Simple Mode.

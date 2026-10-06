@@ -10,6 +10,7 @@ import 'widgets/lorecraft_foresight_pill.dart';
 import 'widgets/objective_milestone_toast.dart';
 import 'lorecraft_boot_page_view.dart';
 import '../services/app_mode_service.dart';
+import '../services/local_execution_manager.dart';
 
 import 'shell_layout.dart';
 
@@ -48,6 +49,7 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
   void initState() {
     super.initState();
     widget.loreService.addListener(_onServiceChanged);
+    widget.loreService.edgeManager.addListener(_onServiceChanged);
   }
 
   void _onServiceChanged() {
@@ -60,6 +62,7 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
   @override
   void dispose() {
     widget.loreService.removeListener(_onServiceChanged);
+    widget.loreService.edgeManager.removeListener(_onServiceChanged);
     _promptController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -714,56 +717,7 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
                   ],
                   if (!AppModeService().isSimple) ...[
                     const SizedBox(width: 8),
-                    InkWell(
-                      key: const Key('btn_toggle_genui_verbosity'),
-                      onTap: () => s.toggleHideTextIfGenerativeUi(),
-                      borderRadius: BorderRadius.circular(14),
-                      child: Tooltip(
-                        message: s.hideTextIfGenerativeUi
-                            ? 'Generative UI Text: Hiding redundant outer speech'
-                            : 'Generative UI Text: Showing redundant outer speech',
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: s.hideTextIfGenerativeUi
-                                ? SepiaTheme.sage.withValues(alpha: 0.15)
-                                : SepiaTheme.paperSubtle,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: s.hideTextIfGenerativeUi
-                                  ? SepiaTheme.sage
-                                  : SepiaTheme.border,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                s.hideTextIfGenerativeUi
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                size: 13,
-                                color: s.hideTextIfGenerativeUi
-                                    ? SepiaTheme.sage
-                                    : SepiaTheme.inkMuted,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                s.hideTextIfGenerativeUi ? 'GEN-UI CLEAN' : 'GEN-UI VERBOSE',
-                                style: SepiaTheme.mono(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: s.hideTextIfGenerativeUi
-                                      ? SepiaTheme.sage
-                                      : SepiaTheme.inkMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                    _buildEdgeEngineTogglePill(s),
                   ],
                   const SizedBox(width: 8),
                   Text(
@@ -885,7 +839,7 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    '⚡ On-Device Gemma 4 int4 synthesizing dynamic next-turn cards... (0.0 KB egress)',
+                    '⚡ On-Device ${s.edgeManager.activeEngine == ActiveEdgeEngine.geminiNano ? "Gemini Nano" : "Gemma 4 int4"} synthesizing dynamic next-turn cards... (0.0 KB egress)',
                     style: SepiaTheme.mono(fontSize: 11, fontWeight: FontWeight.w700, color: SepiaTheme.ink),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1168,6 +1122,91 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildEdgeEngineTogglePill(LoreCraftService s) {
+    final edgeManager = s.edgeManager;
+    final isNano = edgeManager.activeEngine == ActiveEdgeEngine.geminiNano;
+    final color = isNano ? SepiaTheme.azure : SepiaTheme.sage;
+
+    final engineLabel = isNano ? 'EDGE: GEMINI NANO' : 'EDGE: GEMMA 4';
+    final tooltipMsg = isNano
+        ? 'Active Edge Engine: Gemini Nano (Chrome Prompt API).\nTap to toggle Gemma 4 int4 (WebGPU / LiteRT).'
+        : 'Active Edge Engine: Gemma 4 int4 (${edgeManager.gemmaService.isWebGPUAvailable ? "WebGPU" : "LiteRT"}).\nTap to toggle Gemini Nano (Chrome Prompt API).';
+
+    return InkWell(
+      key: const Key('btn_toggle_edge_model'),
+      onTap: () async {
+        await edgeManager.toggleLocalEngine();
+        if (!mounted) return;
+        final newIsNano = edgeManager.activeEngine == ActiveEdgeEngine.geminiNano;
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(
+                  newIsNano ? Icons.auto_awesome_rounded : Icons.memory_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    newIsNano
+                        ? '⚡ Switched edge engine to Gemini Nano (Chrome Built-in AI)'
+                        : '⚡ Switched edge engine to Gemma 4 int4 (WebGPU / LiteRT)',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 2),
+            backgroundColor: newIsNano ? SepiaTheme.azure : SepiaTheme.sage,
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: Tooltip(
+        message: tooltipMsg,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: color.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isNano ? Icons.auto_awesome_rounded : Icons.memory_rounded,
+                size: 13,
+                color: color,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                engineLabel,
+                style: SepiaTheme.mono(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.swap_horiz,
+                size: 12,
+                color: color.withValues(alpha: 0.7),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

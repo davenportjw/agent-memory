@@ -57,6 +57,18 @@ class LocalExecutionManager extends ChangeNotifier {
     }
   }
 
+  /// Toggles between on-device Gemma 4 and Gemini Nano engines.
+  Future<void> toggleLocalEngine() async {
+    if (_activeEngine == ActiveEdgeEngine.geminiNano) {
+      selectedEngine = EdgeEngineSelection.gemma4;
+    } else {
+      selectedEngine = EdgeEngineSelection.geminiNano;
+      if (isGeminiNanoNeedsDownload && !_isCreatingModel) {
+        unawaited(createLanguageModel());
+      }
+    }
+  }
+
   /// Current active engine running on-device inference.
   ActiveEdgeEngine get activeEngine => _activeEngine;
 

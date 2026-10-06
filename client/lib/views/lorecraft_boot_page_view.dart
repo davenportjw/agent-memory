@@ -30,6 +30,7 @@ class LoreCraftBootPageView extends StatefulWidget {
 class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
   bool _isPerformingAction = false;
   String? _statusBannerMessage;
+  String? _selectedTopicId;
   String? _selectedTopicContent;
   String? _selectedTopicTitle;
 
@@ -67,6 +68,7 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
     try {
       final topic = await widget.memoryService.fetchMemoryTopic(topicId);
       setState(() {
+        _selectedTopicId = topic.topicId;
         _selectedTopicTitle = topic.title;
         _selectedTopicContent = topic.fullContent;
         _statusBannerMessage = 'Loaded "${topic.title}" (${topic.byteSize} B, ~${topic.tokenEstimate} tokens) into local cache.';
@@ -80,6 +82,34 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
         setState(() => _isPerformingAction = false);
       }
     }
+  }
+
+  void _handleToolEvict(String topicId) {
+    AudioFeedbackService.instance.playEvictPulse();
+    final topic = widget.memoryService.localTopicCache[topicId];
+    final title = topic?.title ?? topicId;
+    final evicted = widget.memoryService.evictMemoryTopic(topicId);
+    if (evicted) {
+      setState(() {
+        if (_selectedTopicId == topicId) {
+          _selectedTopicId = null;
+          _selectedTopicTitle = null;
+          _selectedTopicContent = null;
+        }
+        _statusBannerMessage = 'Evicted "$title" from local edge cache.';
+      });
+    }
+  }
+
+  void _handleEvictAllTopics() {
+    AudioFeedbackService.instance.playEvictPulse();
+    final count = widget.memoryService.evictAllLocalTopics();
+    setState(() {
+      _selectedTopicId = null;
+      _selectedTopicTitle = null;
+      _selectedTopicContent = null;
+      _statusBannerMessage = 'Evicted $count cached topic(s) from local edge memory.';
+    });
   }
 
   Future<void> _handleExecuteBoundTask() async {
@@ -909,6 +939,36 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (masterIndex.entries.any((e) => widget.memoryService.localTopicCache.containsKey(e.topicId))) ...[
+                      InkWell(
+                        key: const Key('btn_evict_all_topics'),
+                        onTap: _isPerformingAction ? null : _handleEvictAllTopics,
+                        borderRadius: BorderRadius.circular(4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: SepiaTheme.paper,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: SepiaTheme.borderSubtle),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.cleaning_services, size: 12, color: SepiaTheme.inkMuted),
+                              const SizedBox(width: 4),
+                              Text(
+                                'CLEAR ALL CACHED',
+                                style: SepiaTheme.mono(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: SepiaTheme.inkMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -922,7 +982,7 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
                   runSpacing: 8,
                   children: masterIndex.entries.take(4).map((entry) {
                     final isCached = widget.memoryService.localTopicCache.containsKey(entry.topicId);
-                    return ActionChip(
+                    return InputChip(
                       key: Key('btn_fetch_topic_${entry.topicId}'),
                       avatar: Icon(
                         isCached ? Icons.check_circle : Icons.download,
@@ -943,7 +1003,25 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
                       side: BorderSide(
                         color: isCached ? SepiaTheme.sageBorder : SepiaTheme.border,
                       ),
-                      onPressed: _isPerformingAction ? null : () => _handleToolFetch(entry.topicId),
+                      onPressed: _isPerformingAction
+                          ? null
+                          : () {
+                              if (isCached) {
+                                _handleToolEvict(entry.topicId);
+                              } else {
+                                _handleToolFetch(entry.topicId);
+                              }
+                            },
+                      onDeleted: isCached && !_isPerformingAction
+                          ? () => _handleToolEvict(entry.topicId)
+                          : null,
+                      deleteIcon: isCached
+                          ? const Icon(Icons.close, size: 14, color: SepiaTheme.sage)
+                          : null,
+                      deleteButtonTooltipMessage: 'Uncache / evict from local memory',
+                      tooltip: isCached
+                          ? 'Cached locally in 0ms RAM. Click to uncache / evict.'
+                          : 'Click to fetch and page into local cache.',
                     );
                   }).toList(),
                 ),
@@ -960,13 +1038,46 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'PAGED CONTEXT: $_selectedTopicTitle',
-                          style: SepiaTheme.mono(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: SepiaTheme.amber,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'PAGED CONTEXT: $_selectedTopicTitle',
+                              style: SepiaTheme.mono(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: SepiaTheme.amber,
+                              ),
+                            ),
+                            if (_selectedTopicId != null &&
+                                widget.memoryService.localTopicCache.containsKey(_selectedTopicId)) ...[
+                              InkWell(
+                                key: Key('btn_evict_selected_topic_$_selectedTopicId'),
+                                onTap: _isPerformingAction
+                                    ? null
+                                    : () => _handleToolEvict(_selectedTopicId!),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.delete_outline, size: 13, color: SepiaTheme.terracotta),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'EVICT FROM CACHE',
+                                        style: SepiaTheme.mono(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: SepiaTheme.terracotta,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Text(

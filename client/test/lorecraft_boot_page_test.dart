@@ -91,6 +91,137 @@ void main() {
       expect(find.textContaining('CACHED LOCALLY'), findsWidgets);
     });
 
+    testWidgets('Pattern 2: Tapping cached chip unclicks and evicts topic from local cache', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LoreCraftBootPageView(
+              loreService: loreService,
+              memoryService: memoryService,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final fetchBtnFinder = find.byKey(const Key('btn_fetch_topic_undercity_sluice_bypass'));
+      await tester.ensureVisible(fetchBtnFinder);
+      // 1. Click to cache
+      await tester.tap(fetchBtnFinder);
+      await tester.pumpAndSettle();
+      expect(memoryService.localTopicCache.containsKey('undercity_sluice_bypass'), isTrue);
+      expect(find.textContaining('CACHED LOCALLY'), findsWidgets);
+
+      // 2. Unclick (tap cached chip again) to evict from cache
+      await tester.tap(fetchBtnFinder);
+      await tester.pumpAndSettle();
+      expect(memoryService.localTopicCache.containsKey('undercity_sluice_bypass'), isFalse);
+      expect(find.textContaining('Undercity Sluice Drainage Grid (CACHED LOCALLY)'), findsNothing);
+    });
+
+    testWidgets('Pattern 2: Tapping delete icon [✕] on cached chip evicts topic from cache', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LoreCraftBootPageView(
+              loreService: loreService,
+              memoryService: memoryService,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final fetchBtnFinder = find.byKey(const Key('btn_fetch_topic_undercity_sluice_bypass'));
+      await tester.ensureVisible(fetchBtnFinder);
+      await tester.tap(fetchBtnFinder);
+      await tester.pumpAndSettle();
+      expect(memoryService.localTopicCache.containsKey('undercity_sluice_bypass'), isTrue);
+
+      // Tap onDeleted close icon on chip
+      final deleteIconFinder = find.descendant(
+        of: fetchBtnFinder,
+        matching: find.byIcon(Icons.close),
+      );
+      expect(deleteIconFinder, findsOneWidget);
+      await tester.tap(deleteIconFinder);
+      await tester.pumpAndSettle();
+
+      expect(memoryService.localTopicCache.containsKey('undercity_sluice_bypass'), isFalse);
+    });
+
+    testWidgets('Pattern 2: Evict from Cache button in paged context card evicts topic', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LoreCraftBootPageView(
+              loreService: loreService,
+              memoryService: memoryService,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final fetchBtnFinder = find.byKey(const Key('btn_fetch_topic_undercity_sluice_bypass'));
+      await tester.ensureVisible(fetchBtnFinder);
+      await tester.tap(fetchBtnFinder);
+      await tester.pumpAndSettle();
+      expect(memoryService.localTopicCache.containsKey('undercity_sluice_bypass'), isTrue);
+
+      final evictCardBtn = find.byKey(const Key('btn_evict_selected_topic_undercity_sluice_bypass'));
+      expect(evictCardBtn, findsOneWidget);
+      await tester.tap(evictCardBtn);
+      await tester.pumpAndSettle();
+
+      expect(memoryService.localTopicCache.containsKey('undercity_sluice_bypass'), isFalse);
+      expect(find.textContaining('PAGED CONTEXT:'), findsNothing);
+    });
+
+    testWidgets('Pattern 2: Clear All Cached button evicts all locally cached topics', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LoreCraftBootPageView(
+              loreService: loreService,
+              memoryService: memoryService,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Fetch two topics
+      await tester.tap(find.byKey(const Key('btn_fetch_topic_undercity_sluice_bypass')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('btn_fetch_topic_iron_vanguard_ciphers')));
+      await tester.pumpAndSettle();
+      expect(memoryService.localTopicCache.length, greaterThanOrEqualTo(2));
+
+      final clearAllBtn = find.byKey(const Key('btn_evict_all_topics'));
+      expect(clearAllBtn, findsOneWidget);
+      await tester.tap(clearAllBtn);
+      await tester.pumpAndSettle();
+
+      expect(memoryService.localTopicCache.isEmpty, isTrue);
+    });
+
     testWidgets('Pattern 2: Task-Bound context expands and evicts upon completion', (tester) async {
       tester.view.physicalSize = const Size(1400, 1000);
       tester.view.devicePixelRatio = 1.0;
