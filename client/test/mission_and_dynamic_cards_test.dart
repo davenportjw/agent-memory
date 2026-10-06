@@ -11,6 +11,7 @@ import '../lib/views/widgets/lorecraft_mission_briefing_card.dart';
 import '../lib/views/widgets/lorecraft_foresight_pill.dart';
 import '../lib/views/lorecraft_boot_page_view.dart';
 import '../lib/views/lorecraft_studio.dart';
+import '../lib/services/app_mode_service.dart';
 
 void main() {
   group('GameMission Data Architecture Tests', () {
@@ -182,6 +183,7 @@ void main() {
     late LoreCraftService service;
 
     setUp(() {
+      AppModeService().setMode(AppDisplayMode.everything);
       final router = SwitchingRouterService();
       final edge = LocalExecutionManager(gemmaService: GemmaEdgeService());
       final cloud = CloudSseClient();

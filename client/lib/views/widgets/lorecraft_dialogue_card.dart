@@ -281,7 +281,7 @@ class LoreCraftDialogueCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      isSimple ? '⚡ Edge vs Cloud Telemetry' : 'Dialogue Frame Telemetry',
+                      'Dialogue Frame Telemetry',
                       style: SepiaTheme.sans(fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                   ],
@@ -292,14 +292,21 @@ class LoreCraftDialogueCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: isSimple
                         ? [
-                            _metricRow('AI Execution Route', isEdge ? '⚡ Local Edge (On-Device)' : '☁️ Cloud Escalated (Remote)'),
+                            _metricRow('Execution Route', isEdge ? '⚡ Local Edge (On-Device)' : '☁️ Cloud Escalated (Remote)'),
                             _metricRow('Model Engine', turn.modelName),
-                            _metricRow('Speed (TTFT / Latency)', '${turn.ttftMs > 0 ? '${turn.ttftMs}ms' : '< 60ms'} TTFT / ${turn.latencyMs}ms Total'),
-                            _metricRow('Cloud Network Egress', isEdge ? '0.0 KB (Zero egress, 100% private)' : '${turn.egressBytes} bytes'),
+                            _metricRow('Time to First Token (TTFT)', '${turn.ttftMs} ms'),
+                            _metricRow('Total Latency', '${turn.latencyMs} ms'),
+                            _metricRow('Cloud Egress', isEdge ? '0.0 KB (Zero egress, 100% private)' : '${turn.egressBytes} bytes'),
+                            _metricRow(
+                              'Frame Budget Status',
+                              isVisual
+                                  ? 'Cloud Visual Task (~1.2s)'
+                                  : (turn.fpsCompliant ? 'Compliant (< 100ms)' : 'Exceeded (> 100ms)'),
+                            ),
                             if (turn.memoryDelta != null)
-                              _metricRow('Memory Integration', turn.memoryDelta!),
+                              _metricRow('Memory Delta', turn.memoryDelta!),
                             if (turn.routeJustification != null)
-                              _metricRow('Strategic Routing Reason', turn.routeJustification!),
+                              _metricRow('Routing Reason', turn.routeJustification!),
                           ]
                         : [
                             _metricRow('Execution Route', turn.route.name),

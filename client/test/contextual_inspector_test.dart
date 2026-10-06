@@ -8,6 +8,7 @@ import '../lib/services/gemma_edge_service.dart';
 import '../lib/services/local_execution_manager.dart';
 import '../lib/services/cloud_sse_client.dart';
 import '../lib/services/local_memory_service.dart';
+import '../lib/services/app_mode_service.dart';
 import '../lib/views/right_drawer_panel.dart';
 import '../lib/views/shell_layout.dart';
 
@@ -17,6 +18,7 @@ void main() {
     late List<MemoryAnchor> sampleAnchors;
 
     setUp(() {
+      AppModeService().setMode(AppDisplayMode.everything);
       final router = SwitchingRouterService();
       final edge = LocalExecutionManager(gemmaService: GemmaEdgeService());
       final cloud = CloudSseClient();

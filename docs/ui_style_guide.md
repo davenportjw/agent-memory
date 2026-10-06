@@ -224,7 +224,30 @@ To maintain a clean distinction between the user-facing game experience and unde
 
 ---
 
-## 11. Related Documentation
+## 11. Simple Mode vs. Everything Mode (Showcase Slider)
+
+To present a razor-sharp product demonstration while maintaining deep developer observability, the application includes a tactile mode toggle slider (`[ ⚡ Simple | 🔬 Everything ]`) at the top of the global navigation rail.
+
+### A. The 3 Technical Pillars
+In **Simple Mode**, all UI language, telemetry, and cards strictly spotlight the 3 core architectural pillars:
+1. **Edge vs Cloud AI Execution**:
+   - Gemma 4 int4 on-device (< 60 ms TTFT, 0.0 KB cloud egress, 100% private) vs. Gemini 3.8 Flash Cloud Run escalation (strategic cross-session reasoning, complex world simulation).
+2. **Memory Architecture & Lifecycles**:
+   - 4 cold-start boot phases (Directives, JIT Fetch, Task-Bound Context, 3 AM Dreaming Sync), episodic turn ingestion, durable knowledge anchors, and strict < 50 KB edge memory bundle budgets.
+3. **Living State & Multi-Agent World Simulation**:
+   - Active quest track / mission dossier, 3 faction standings, dynamic sector contacts, choice consequences, and edge-cloud state synchronization.
+
+### B. What Goes Behind the Slider (Everything Mode Only)
+The following developer-internal controls, cheat mechanisms, and diagnostic artifacts are hidden in Simple Mode and unlocked in Everything Mode:
+- **Navigation Rail**: Simple Mode restricts the rail to ONLY the 2 core showcase views (`LoreCraft Studio` and `Edge Agent Boot`). Everything Mode unlocks all 8 destinations.
+- **Developer Cheat Knobs**: Faction reputation `+10 / -10` stepper buttons (`btn_faction_sub_*`, `btn_faction_add_*`) are hidden in Simple Mode.
+- **Direct Nav Jump Shortcuts**: The top bar `DEV MEMORY` button and left drawer `INSPECT IN MEMORY STUDIO ➔` shortcut are hidden in Simple Mode.
+- **Arbiter & Scoring Rubrics**: The Canon Arbiter Scorecard card in the Living Lore drawer, the LLM-as-a-rater grading rubric card (`EducationAssessmentCard`) on the boot page, and raw frame budget compliance badges are hidden in Simple Mode.
+- **Dialogue Telemetry**: Tapping a dialogue badge in Simple Mode displays a focused 3-pillar breakdown (Execution Route, Model Engine, TTFT/Latency, Cloud Egress, Memory Delta, Routing Reason). In Everything Mode, it displays full internal rule IDs (`Firebase AI Policy`), arbiter models, and commentary.
+
+---
+
+## 12. Related Documentation
 - [LoreCraft Dynamic Gameplay](lorecraft_dynamic_gameplay.md): Narrative systems and A2UI interaction surfaces.
 - [Routing Guide](routing_guide.md): Intent Pill visual contracts and switching rationale modals.
 - [Memory Pipeline Specification](memory_pipeline.md): Quiet typography in memory inspectors and boot sequence telemetry.

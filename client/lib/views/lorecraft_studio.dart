@@ -484,35 +484,33 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
                         'Select Sector Contact',
                         style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.inkMuted),
                       ),
-                      if (!AppModeService().isSimple) ...[
-                        InkWell(
-                          key: const Key('btn_revisit_boot_sequence_briefing'),
-                          onTap: () => s.resetToBootState(),
-                          borderRadius: BorderRadius.circular(14),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: SepiaTheme.amber.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: SepiaTheme.amber.withValues(alpha: 0.5),
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.bolt, size: 13, color: SepiaTheme.amber),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'BOOT SEQUENCE',
-                                  style: SepiaTheme.mono(fontSize: 10, fontWeight: FontWeight.w700, color: SepiaTheme.ink),
-                                ),
-                              ],
+                      InkWell(
+                        key: const Key('btn_revisit_boot_sequence_briefing'),
+                        onTap: () => s.resetToBootState(),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: SepiaTheme.amber.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: SepiaTheme.amber.withValues(alpha: 0.5),
+                              width: 1,
                             ),
                           ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.bolt, size: 13, color: SepiaTheme.amber),
+                              const SizedBox(width: 4),
+                              Text(
+                                'BOOT SEQUENCE',
+                                style: SepiaTheme.mono(fontSize: 10, fontWeight: FontWeight.w700, color: SepiaTheme.ink),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
+                      ),
                       Text(
                         '0.0 KB Cloud Egress',
                         style: SepiaTheme.mono(fontSize: 11, fontWeight: FontWeight.w700, color: SepiaTheme.sage),

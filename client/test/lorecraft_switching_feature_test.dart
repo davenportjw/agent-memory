@@ -11,8 +11,13 @@ import '../lib/services/local_memory_service.dart';
 import '../lib/views/widgets/lorecraft_router_dial.dart';
 import '../lib/views/widgets/lorecraft_foresight_pill.dart';
 import '../lib/views/widgets/lorecraft_dialogue_card.dart';
+import '../lib/services/app_mode_service.dart';
 
 void main() {
+  setUp(() {
+    AppModeService().setMode(AppDisplayMode.everything);
+  });
+
   group('LoreCraft Dynamic Switching Policy Feature Tests', () {
     test('LoreCraftService: previewRoute and mode override work dynamically', () {
       final router = SwitchingRouterService();
