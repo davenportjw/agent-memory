@@ -83,6 +83,12 @@ func Load() (*Config, error) {
 		projectID = os.Getenv("PROJECT_ID")
 	}
 	if projectID == "" {
+		projectID = os.Getenv("GOOGLE_CLOUD_PROJECT")
+	}
+	if projectID == "" {
+		projectID = os.Getenv("GCLOUD_PROJECT")
+	}
+	if projectID == "" {
 		projectID = DefaultProjectID
 	}
 

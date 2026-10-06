@@ -11,13 +11,13 @@ if [ -f "${ROOT_DIR}/.env" ]; then
     set +a
 fi
 
-# Prefer project flutter SDK if installed, otherwise fallback to system flutter
-if [ -x "${ROOT_DIR}/.flutter_sdk/bin/flutter" ]; then
+# Prefer system flutter SDK if installed, otherwise fallback to local project flutter
+if command -v flutter >/dev/null 2>&1; then
+    exec flutter "$@"
+elif [ -x "${ROOT_DIR}/.flutter_sdk/bin/flutter" ]; then
     export HOME="${ROOT_DIR}/.tmp_home"
     export PUB_CACHE="${ROOT_DIR}/.tmp_home/.pub-cache"
     exec "${ROOT_DIR}/.flutter_sdk/bin/flutter" "$@"
-elif command -v flutter >/dev/null 2>&1; then
-    exec flutter "$@"
 else
     echo "Error: Flutter SDK not found. Please install Flutter or run setup." >&2
     exit 1

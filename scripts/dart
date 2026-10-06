@@ -20,12 +20,12 @@ if [[ "${*:-}" == *"test/"*".dart"* ]]; then
     exec "${ROOT_DIR}/scripts/flutter" test "${TEST_FILE}"
 fi
 
-if [ -x "${ROOT_DIR}/.flutter_sdk/bin/cache/dart-sdk/bin/dart" ]; then
+if command -v dart >/dev/null 2>&1; then
+    exec dart "$@"
+elif [ -x "${ROOT_DIR}/.flutter_sdk/bin/cache/dart-sdk/bin/dart" ]; then
     export HOME="${ROOT_DIR}/.tmp_home"
     export PUB_CACHE="${ROOT_DIR}/.tmp_home/.pub-cache"
     exec "${ROOT_DIR}/.flutter_sdk/bin/cache/dart-sdk/bin/dart" "$@"
-elif command -v dart >/dev/null 2>&1; then
-    exec dart "$@"
 else
     echo "Error: Dart SDK not found." >&2
     exit 1
