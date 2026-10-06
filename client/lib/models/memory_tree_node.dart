@@ -7,6 +7,10 @@ enum MemoryNodeType {
   turn,
   anchor,
   attribute,
+  diffAdded,
+  diffRemoved,
+  diffModified,
+  diffSynced,
 }
 
 /// Hierarchical Memory Tree Node representation for Local and Cloud tree views

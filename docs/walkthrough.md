@@ -206,38 +206,33 @@ PASS - 11/11 tests passing (0.388s)
   ✓ [PASS] Markdown: Strips embedded raw JSON choices from speech text
 
 [10/11] MEMORY NOTEBOOK & PATTERN SIMULATOR TESTS:
-  ✓ [PASS] Notebook Studio: Hierarchical local memory tree builds all branches correctly
-  ✓ [PASS] Notebook Studio: Hierarchical cloud knowledge tree groups categories and audits
-  ✓ [PASS] Notebook Studio: Simulator injects contradictory directive and updates audit records
-  ✓ [PASS] Notebook Studio: Pattern tester runs live regex scrubber against sample text
-  ✓ [PASS] Notebook Studio: Live memory inspector expands node details
-  ✓ [PASS] Notebook Studio: Edge bundle visualizer calculates exact byte consumption
-  ✓ [PASS] Notebook Studio: Cloud dream simulation advances consolidation state
-  ✓ [PASS] Notebook Studio: Durable node version increment verified
-  ✓ [PASS] Notebook Studio: Ingestion queue purges after successful consolidation
-  ✓ [PASS] Notebook Studio: Export memory bundle verifies JSON schema parity
+  ✓ [PASS] Hierarchical local memory tree builds all branches correctly
+  ✓ [PASS] Hierarchical cloud knowledge tree groups categories and audits
+  ✓ [PASS] Simulator injects contradictory directive and updates audit records
+  ✓ [PASS] Simulator budget pressure tests 50 KB ceiling accurately
+  ✓ [PASS] Simulator offline partition toggles local edge isolation
+  ✓ [PASS] Simulator reset restores memory baseline state and clears logs
+  ✓ [PASS] Hierarchical Edge-Cloud diff tree builds all 4 delta branches correctly
+  ✓ [PASS] Edge-Cloud diff tree dynamically reflects pending turns and contradictions
 
 [11/11] LORECRAFT DYNAMIC WORLD & NPC ENGINE TESTS:
   ✓ [PASS] LoreCraft: Initial state sets 3 factions, 3 NPCs, 3 regions with grounded lore
   ✓ [PASS] LoreCraft: Switching NPC automatically shifts habitat and appends greeting turn
-  ✓ [PASS] LoreCraft: Dialogue turn sends user prompt and receives in-character response
-  ✓ [PASS] LoreCraft: Reactive dialogue bark routes to EDGE_LOCAL with sub-60ms TTFT
-  ✓ [PASS] LoreCraft: Campaign synthesis routes to CLOUD_ESCALATE with consequence impact
-  ✓ [PASS] LoreCraft: Visual synthesis request routes to Nano Banana 2 Lite on Cloud Run
-  ✓ [PASS] LoreCraft: Canon Arbiter evaluates dialogue turn across voice and canon rubrics
-  ✓ [PASS] LoreCraft: Dynamic 3-card next-turn option synthesis generates choices
-  ✓ [PASS] LoreCraft: Pre-dialogue mission briefing initializes before contact
-  ✓ [PASS] LoreCraft: Faction reputation shifts dynamically based on dialogue choices
-  ✓ [PASS] LoreCraft: World state edge bundle strictly adheres to < 50 KB budget
-  ✓ [PASS] LoreCraft: Zero raw JSON leakage in rendered NPC speech bubbles
+  ✓ [PASS] LoreCraft: Adjusting faction reputation recalculates alignment
+  ✓ [PASS] LoreCraft: World State Memory Bundle adheres strictly to < 50 KB budget
+  ✓ [PASS] LoreCraft: Router directs reactive NPC dialogue to RULE_GAME_REACTIVE_BARK (EDGE_LOCAL)
+  ✓ [PASS] LoreCraft: Router escalates cross-faction consequence to RULE_GAME_CAMPAIGN_SYNTHESIS (CLOUD_ESCALATE)
+  ✓ [PASS] LoreCraft: Canon Arbiter correctly weights voice, canon, and frame budget
+  ✓ [PASS] LoreCraft: LoreDialogueTurn equality and copy preserves turn identification
+  ✓ [PASS] LoreCraft: sendPlayerAction correctly streams and updates NPC turn without truncating to single token
 
 ===========================================================
  TEST EXECUTION SUMMARY
 ===========================================================
-Total Tests:  62
-Passed:       62
+Total Tests:  68
+Passed:       68
 Failed:       0
-Elapsed Time: 3140ms
+Elapsed Time: 15718ms
 🎉 ALL TESTS PASSED SUCCESSFULLY (100% PASS RATE)!
 ===========================================================
 ```

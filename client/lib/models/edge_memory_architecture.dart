@@ -203,6 +203,9 @@ class MasterIndexEntry {
     required this.lastUpdated,
   });
 
+  String get topicName => title;
+  int get estimatedTokens => tokenEstimate;
+
   MasterIndexEntry copyWith({
     String? topicId,
     String? title,
@@ -327,7 +330,7 @@ class MasterIndex {
           byteSize: 3420,
           tokenEstimate: 380,
           versionHash: 'hash-ivg-99a',
-          isCachedLocally: true,
+          isCachedLocally: false,
           lastUpdated: now.subtract(const Duration(hours: 3)),
         ),
         MasterIndexEntry(
@@ -531,31 +534,61 @@ class TaskBoundContext {
 class PrefetchEvent {
   final String id;
   final String stateTrigger;
+  final String? sceneId;
   final List<String> targetTopicIds;
+  final List<String> evictedTopicIds;
   final DateTime timestamp;
-  final String status; // PREFETCHED, ALREADY_CACHED, FAILED
+  final String status; // PREFETCHED, TRANSITIONED, ALREADY_CACHED, FAILED
   final int latencyMs;
   final int bytesCached;
+  final int bytesEvicted;
 
   const PrefetchEvent({
     required this.id,
     required this.stateTrigger,
+    this.sceneId,
     required this.targetTopicIds,
+    this.evictedTopicIds = const [],
     required this.timestamp,
     required this.status,
     required this.latencyMs,
     required this.bytesCached,
+    this.bytesEvicted = 0,
   });
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'state_trigger': stateTrigger,
+    if (sceneId != null) 'scene_id': sceneId,
     'target_topic_ids': targetTopicIds,
+    'evicted_topic_ids': evictedTopicIds,
     'timestamp': timestamp.toIso8601String(),
     'status': status,
     'latency_ms': latencyMs,
     'bytes_cached': bytesCached,
+    'bytes_evicted': bytesEvicted,
   };
+
+  factory PrefetchEvent.fromJson(Map<String, dynamic> json) => PrefetchEvent(
+    id: json['id'] as String? ?? '',
+    stateTrigger: json['state_trigger'] as String? ?? '',
+    sceneId: json['scene_id'] as String?,
+    targetTopicIds: (json['target_topic_ids'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [],
+    evictedTopicIds: (json['evicted_topic_ids'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [],
+    timestamp: json['timestamp'] != null
+        ? DateTime.parse(json['timestamp'] as String)
+        : DateTime.now(),
+    status: json['status'] as String? ?? 'PREFETCHED',
+    latencyMs: json['latency_ms'] as int? ?? 0,
+    bytesCached: json['bytes_cached'] as int? ?? 0,
+    bytesEvicted: json['bytes_evicted'] as int? ?? 0,
+  );
 }
 
 /// Delta update pushed by the cloud dream daemon overnight during low-activity periods.

@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 import '../models/routing_decision.dart';
 import '../models/edge_memory_bundle.dart';
+import '../services/lorecraft_service.dart';
 import '../theme/sepia_theme.dart';
+import 'shell_layout.dart';
 import 'widgets/telemetry_card.dart';
+import 'widgets/lorecraft_canon_arbiter_card.dart';
+import '../services/app_mode_service.dart';
 
-class RightDrawerPanel extends StatelessWidget {
+enum InspectorMode {
+  gameWorld,
+  aiEngine,
+}
+
+class RightDrawerPanel extends StatefulWidget {
   final IntentPillData? selectedPill;
   final ExecutionTelemetry? latestTelemetry;
   final List<MemoryAnchor> recalledAnchors;
@@ -12,6 +21,8 @@ class RightDrawerPanel extends StatelessWidget {
   final int consecutiveFailures;
   final VoidCallback onResetCircuitBreaker;
   final VoidCallback onToggleDrawer;
+  final LoreCraftService? loreService;
+  final ShellNavDestination? currentDestination;
 
   const RightDrawerPanel({
     super.key,
@@ -22,10 +33,41 @@ class RightDrawerPanel extends StatelessWidget {
     required this.consecutiveFailures,
     required this.onResetCircuitBreaker,
     required this.onToggleDrawer,
+    this.loreService,
+    this.currentDestination,
   });
 
   @override
+  State<RightDrawerPanel> createState() => _RightDrawerPanelState();
+}
+
+class _RightDrawerPanelState extends State<RightDrawerPanel> {
+  late InspectorMode _activeMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeMode = (widget.currentDestination == ShellNavDestination.loreCraftStudio)
+        ? InspectorMode.gameWorld
+        : InspectorMode.aiEngine;
+  }
+
+  @override
+  void didUpdateWidget(covariant RightDrawerPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentDestination != oldWidget.currentDestination) {
+      if (widget.currentDestination == ShellNavDestination.loreCraftStudio) {
+        _activeMode = InspectorMode.gameWorld;
+      } else if (oldWidget.currentDestination == ShellNavDestination.loreCraftStudio) {
+        _activeMode = InspectorMode.aiEngine;
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isGame = _activeMode == InspectorMode.gameWorld;
+
     return Container(
       width: 320,
       decoration: const BoxDecoration(
@@ -46,16 +88,22 @@ class RightDrawerPanel extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.insights_rounded, size: 16, color: SepiaTheme.ink),
+                Icon(
+                  isGame ? Icons.auto_stories : Icons.insights_rounded,
+                  size: 16,
+                  color: SepiaTheme.amber,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'CONTEXTUAL INSPECTOR',
+                    isGame ? 'LORECRAFT STUDIO INSPECTOR' : 'CONTEXTUAL INSPECTOR',
                     style: SepiaTheme.sans(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.5,
+                      color: SepiaTheme.ink,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 IconButton(
@@ -63,8 +111,78 @@ class RightDrawerPanel extends StatelessWidget {
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   splashRadius: 16,
-                  onPressed: onToggleDrawer,
+                  onPressed: widget.onToggleDrawer,
                   tooltip: 'Collapse Inspector',
+                ),
+              ],
+            ),
+          ),
+
+          // Mode Switcher Segmented Pills
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
+              color: SepiaTheme.paperSubtle,
+              border: Border(bottom: BorderSide(color: SepiaTheme.border, width: 0.5)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    key: const Key('tab_inspector_game_world'),
+                    onTap: () => setState(() => _activeMode = InspectorMode.gameWorld),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      decoration: BoxDecoration(
+                        color: isGame ? SepiaTheme.paper : Colors.transparent,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: isGame ? SepiaTheme.amber : Colors.transparent,
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '🏰 Game World',
+                          style: SepiaTheme.sans(
+                            fontSize: 11,
+                            fontWeight: isGame ? FontWeight.w700 : FontWeight.w500,
+                            color: isGame ? SepiaTheme.ink : SepiaTheme.inkMuted,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: InkWell(
+                    key: const Key('tab_inspector_ai_engine'),
+                    onTap: () => setState(() => _activeMode = InspectorMode.aiEngine),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      decoration: BoxDecoration(
+                        color: !isGame ? SepiaTheme.paper : Colors.transparent,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: !isGame ? SepiaTheme.amber : Colors.transparent,
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '⚙️ AI Engine',
+                          style: SepiaTheme.sans(
+                            fontSize: 11,
+                            fontWeight: !isGame ? FontWeight.w700 : FontWeight.w500,
+                            color: !isGame ? SepiaTheme.ink : SepiaTheme.inkMuted,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -74,58 +192,492 @@ class RightDrawerPanel extends StatelessWidget {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(12),
-              children: [
-                // Section 1: Selected Intent Pill Deep Dive
-                _buildSectionHeader('SELECTED INTENT PILL DETAILS'),
-                const SizedBox(height: 6),
-                _buildSelectedPillCard(),
-
-                const SizedBox(height: 16),
-                // Section 2: Recalled Durable Memory Anchors
-                _buildSectionHeader('RECALLED MEMORY ANCHORS'),
-                const SizedBox(height: 6),
-                _buildRecalledAnchorsList(),
-
-                const SizedBox(height: 16),
-                // Section 3: Live Telemetry
-                _buildSectionHeader('EXECUTION METRICS'),
-                const SizedBox(height: 6),
-                latestTelemetry != null
-                    ? TelemetryCard(telemetry: latestTelemetry!)
-                    : Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: SepiaTheme.paperSubtle,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: SepiaTheme.border),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'AWAITING LIVE PROMPT EXECUTION',
-                              style: SepiaTheme.mono(fontSize: 10, fontWeight: FontWeight.w700, color: SepiaTheme.inkMuted),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'No prompt executed yet. Submit a message in the Assistant Workspace to measure live TTFT, throughput (tps), RAM allocation, and cloud egress bytes.',
-                              style: SepiaTheme.sans(fontSize: 11, color: SepiaTheme.inkSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                const SizedBox(height: 16),
-                // Section 4: Circuit Breaker State
-                _buildSectionHeader('NETWORK CIRCUIT BREAKER'),
-                const SizedBox(height: 6),
-                _buildCircuitBreakerCard(),
-              ],
+              children: isGame ? _buildGameWorldSections() : _buildAiEngineSections(),
             ),
           ),
         ],
       ),
     );
+  }
+
+  // ===========================================================================
+  // GAME WORLD SECTIONS
+  // ===========================================================================
+
+  List<Widget> _buildGameWorldSections() {
+    return [
+      // Section 1: Active NPC & Strategic Context
+      _buildSectionHeader('ACTIVE NPC & STRATEGIC CONTEXT'),
+      const SizedBox(height: 6),
+      _buildGameWorldContextCard(),
+
+      const SizedBox(height: 16),
+      // Section 2: Active World State Anchors (< 50 KB)
+      _buildSectionHeader('ACTIVE WORLD STATE ANCHORS (< 50 KB)'),
+      const SizedBox(height: 6),
+      _buildGameWorldAnchorsList(),
+
+      const SizedBox(height: 16),
+      // Section 3: Gameplay Performance & Memory Budget
+      _buildSectionHeader('GAMEPLAY PERFORMANCE & MEMORY BUDGET'),
+      const SizedBox(height: 6),
+      _buildGameMetricsAndBudgetCard(),
+
+      if (!AppModeService().isSimple) ...[
+        const SizedBox(height: 16),
+        // Section 4: Canon & Voice Arbiter Scorecard
+        _buildSectionHeader('CANON & VOICE ARBITER SCORECARD'),
+        const SizedBox(height: 6),
+        _buildGameArbiterAndBreakerCard(),
+      ],
+    ];
+  }
+
+  Widget _buildGameWorldContextCard() {
+    final s = widget.loreService;
+    if (s == null) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: SepiaTheme.paper,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: SepiaTheme.borderSubtle),
+        ),
+        child: Text(
+          'Navigate to LoreCraft Studio to inspect active character persona, quest stage, and narrative consequences.',
+          style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.inkMuted),
+        ),
+      );
+    }
+
+    final npc = s.activeNpc;
+    final region = s.activeRegion;
+    final totalStages = s.getNpcQuestStages(npc.id).length;
+    final stageNum = s.currentQuestStage + 1;
+    final lastNpcTurn = s.turns.where((t) => t.isNpc).isNotEmpty ? s.turns.lastWhere((t) => t.isNpc) : null;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: SepiaTheme.paper,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SepiaTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(npc.avatarIcon, size: 20, color: SepiaTheme.amber),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      npc.name,
+                      style: SepiaTheme.sans(fontSize: 13, fontWeight: FontWeight.w700, color: SepiaTheme.ink),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      '${npc.title} • ${region.name}',
+                      style: SepiaTheme.sans(fontSize: 11, color: SepiaTheme.inkMuted),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: SepiaTheme.amber.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'STAGE $stageNum / ${totalStages > 0 ? totalStages : 5}',
+                  style: SepiaTheme.mono(fontSize: 9, fontWeight: FontWeight.w700, color: SepiaTheme.amber),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: SepiaTheme.paperSubtle,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.record_voice_over_outlined, size: 12, color: SepiaTheme.inkMuted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Voice: ${npc.voiceStyle} • Mood: ${npc.currentMood}',
+                    style: SepiaTheme.mono(fontSize: 10, color: SepiaTheme.inkSecondary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (widget.selectedPill != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: SepiaTheme.paperSubtle,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: SepiaTheme.borderSubtle),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'SELECTED TURN INTENT',
+                    style: SepiaTheme.mono(fontSize: 9, fontWeight: FontWeight.w700, color: SepiaTheme.amber),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.selectedPill!.intentLabel,
+                    style: SepiaTheme.sans(fontSize: 12, fontWeight: FontWeight.w600, color: SepiaTheme.ink),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Policy: ${widget.selectedPill!.ruleId} • Route: ${widget.selectedPill!.route.key}',
+                    style: SepiaTheme.mono(fontSize: 10, color: SepiaTheme.inkMuted),
+                  ),
+                  if (widget.selectedPill!.memoryDelta.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.selectedPill!.memoryDelta,
+                      style: SepiaTheme.mono(fontSize: 10, color: SepiaTheme.ink),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ] else if (lastNpcTurn != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'LATEST DIALOGUE TURN:',
+              style: SepiaTheme.mono(fontSize: 9, fontWeight: FontWeight.w700, color: SepiaTheme.inkMuted),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${lastNpcTurn.stageCue} "${lastNpcTurn.speechText}"',
+              style: SepiaTheme.sans(fontSize: 11, fontStyle: FontStyle.italic, color: SepiaTheme.inkSecondary),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGameWorldAnchorsList() {
+    final s = widget.loreService;
+
+    // Collect all world anchors: combine loreService worldAnchors with any world anchors in recalledAnchors
+    final List<Map<String, String>> anchorsToDisplay = [];
+
+    if (s != null) {
+      for (final a in s.worldAnchors) {
+        anchorsToDisplay.add({
+          'key': a.key,
+          'category': a.category,
+          'context': a.distilledContext,
+        });
+      }
+    }
+
+    for (final a in widget.recalledAnchors) {
+      if (a.category == 'WORLD_CANON' ||
+          a.category == 'FACTION_STATE' ||
+          a.category == 'TACTICAL_SECURITY' ||
+          a.category == 'WORLD_EVENT') {
+        if (!anchorsToDisplay.any((item) => item['key'] == a.key)) {
+          anchorsToDisplay.add({
+            'key': a.key,
+            'category': a.category,
+            'context': a.distilledContext,
+          });
+        }
+      }
+    }
+
+    if (anchorsToDisplay.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: SepiaTheme.paper,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: SepiaTheme.borderSubtle),
+        ),
+        child: Text(
+          'No active world anchors bound to current scene context.',
+          style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.inkMuted),
+        ),
+      );
+    }
+
+    return Column(
+      children: anchorsToDisplay.take(4).map((anchor) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: SepiaTheme.paper,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: SepiaTheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      '#${anchor['key']}',
+                      style: SepiaTheme.mono(fontSize: 11, fontWeight: FontWeight.w700, color: SepiaTheme.amber),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: SepiaTheme.paperSubtle,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      anchor['category'] ?? 'WORLD_CANON',
+                      style: SepiaTheme.mono(fontSize: 8, color: SepiaTheme.inkMuted),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Text(
+                anchor['context'] ?? '',
+                style: SepiaTheme.sans(fontSize: 11, color: SepiaTheme.inkSecondary),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildGameMetricsAndBudgetCard() {
+    final s = widget.loreService;
+    final bundleBytes = s?.worldBundleSizeBytes ?? 32180;
+    final bundleKb = bundleBytes / 1024.0;
+    final progress = (bundleKb / 50.0).clamp(0.0, 1.0);
+    final lastNpcTurn = s?.turns.where((t) => t.isNpc).isNotEmpty == true ? s!.turns.lastWhere((t) => t.isNpc) : null;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: SepiaTheme.paper,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SepiaTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'EDGE LORE BUNDLE METER',
+                  style: SepiaTheme.mono(fontSize: 10, fontWeight: FontWeight.w700, color: SepiaTheme.ink),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${bundleKb.toStringAsFixed(1)} KB / 50.0 KB',
+                style: SepiaTheme.mono(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: progress > 0.9 ? SepiaTheme.terracotta : SepiaTheme.sage,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 5,
+              backgroundColor: SepiaTheme.paperSubtle,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                progress > 0.9 ? SepiaTheme.terracotta : SepiaTheme.sage,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Strict < 50 KB edge working memory limits. Fits within on-device NPU cache without cloud synchronization.',
+            style: SepiaTheme.sans(fontSize: 10, color: SepiaTheme.inkMuted),
+          ),
+          const Divider(height: 16, color: SepiaTheme.borderSubtle),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            alignment: WrapAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Dialogue TTFT', style: SepiaTheme.sans(fontSize: 10, color: SepiaTheme.inkMuted)),
+                  const SizedBox(height: 2),
+                  Text(
+                    lastNpcTurn != null ? '${lastNpcTurn.ttftMs} ms' : '< 60 ms',
+                    style: SepiaTheme.mono(fontSize: 11, fontWeight: FontWeight.w700, color: SepiaTheme.sage),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Cloud Egress', style: SepiaTheme.sans(fontSize: 10, color: SepiaTheme.inkMuted)),
+                  const SizedBox(height: 2),
+                  Text(
+                    '0.0 KB',
+                    style: SepiaTheme.mono(fontSize: 11, fontWeight: FontWeight.w700, color: SepiaTheme.sage),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Active Engine', style: SepiaTheme.sans(fontSize: 10, color: SepiaTheme.inkMuted)),
+                  const SizedBox(height: 2),
+                  Text(
+                    lastNpcTurn?.modelName ?? 'Gemma 4 int4',
+                    style: SepiaTheme.mono(fontSize: 10, fontWeight: FontWeight.w600, color: SepiaTheme.ink),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGameArbiterAndBreakerCard() {
+    final s = widget.loreService;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LoreCraftCanonArbiterCard(
+          rating: s?.latestCanonRating,
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: SepiaTheme.paperSubtle,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: SepiaTheme.borderSubtle),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.circuitBreakerState == CircuitBreakerState.CLOSED
+                    ? Icons.check_circle_rounded
+                    : Icons.error_rounded,
+                size: 13,
+                color: widget.circuitBreakerState == CircuitBreakerState.CLOSED
+                    ? SepiaTheme.sage
+                    : SepiaTheme.terracotta,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Cloud Run: ${widget.circuitBreakerState.name} (${widget.consecutiveFailures}/3 fails)',
+                  style: SepiaTheme.mono(fontSize: 9, color: SepiaTheme.inkSecondary),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (widget.circuitBreakerState != CircuitBreakerState.CLOSED)
+                InkWell(
+                  key: const Key('btn_reset_circuit_breaker_game'),
+                  onTap: widget.onResetCircuitBreaker,
+                  child: Text(
+                    'RESET',
+                    style: SepiaTheme.mono(fontSize: 9, fontWeight: FontWeight.w700, color: SepiaTheme.amber),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // AI ENGINE SECTIONS
+  // ===========================================================================
+
+  List<Widget> _buildAiEngineSections() {
+    return [
+      // Section 1: Selected Intent Pill Deep Dive
+      _buildSectionHeader('SELECTED INTENT PILL DETAILS'),
+      const SizedBox(height: 6),
+      _buildSelectedPillCard(),
+
+      const SizedBox(height: 16),
+      // Section 2: Recalled Durable Memory Anchors
+      _buildSectionHeader('RECALLED ENGINE MEMORY ANCHORS'),
+      const SizedBox(height: 6),
+      _buildEngineAnchorsList(),
+
+      const SizedBox(height: 16),
+      // Section 3: Live Telemetry
+      _buildSectionHeader('EXECUTION METRICS'),
+      const SizedBox(height: 6),
+      widget.latestTelemetry != null
+          ? TelemetryCard(telemetry: widget.latestTelemetry!)
+          : Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: SepiaTheme.paperSubtle,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: SepiaTheme.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'AWAITING LIVE PROMPT EXECUTION',
+                    style: SepiaTheme.mono(fontSize: 10, fontWeight: FontWeight.w700, color: SepiaTheme.inkMuted),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'No prompt executed yet. Submit a message in the Assistant Workspace to measure live TTFT, throughput (tps), RAM allocation, and cloud egress bytes.',
+                    style: SepiaTheme.sans(fontSize: 11, color: SepiaTheme.inkSecondary),
+                  ),
+                ],
+              ),
+            ),
+
+      const SizedBox(height: 16),
+      // Section 4: Circuit Breaker State
+      _buildSectionHeader('NETWORK CIRCUIT BREAKER'),
+      const SizedBox(height: 6),
+      _buildCircuitBreakerCard(),
+    ];
   }
 
   Widget _buildSectionHeader(String title) {
@@ -134,7 +686,7 @@ class RightDrawerPanel extends StatelessWidget {
         Container(
           width: 3,
           height: 10,
-          color: SepiaTheme.inkMuted,
+          color: SepiaTheme.amber,
         ),
         const SizedBox(width: 6),
         Expanded(
@@ -154,7 +706,7 @@ class RightDrawerPanel extends StatelessWidget {
   }
 
   Widget _buildSelectedPillCard() {
-    if (selectedPill == null) {
+    if (widget.selectedPill == null) {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -169,7 +721,7 @@ class RightDrawerPanel extends StatelessWidget {
       );
     }
 
-    final pill = selectedPill!;
+    final pill = widget.selectedPill!;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -312,8 +864,17 @@ class RightDrawerPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildRecalledAnchorsList() {
-    if (recalledAnchors.isEmpty) {
+  Widget _buildEngineAnchorsList() {
+    // In AI engine mode, prioritize runtime system policies
+    final engineAnchors = widget.recalledAnchors.where((a) {
+      return a.category == 'SYSTEM_ARCHITECTURE' ||
+          a.category == 'SECURITY_POLICY' ||
+          a.category == 'ROADMAP_DECISION';
+    }).toList();
+
+    final anchorsToShow = engineAnchors.isNotEmpty ? engineAnchors : widget.recalledAnchors;
+
+    if (anchorsToShow.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -322,14 +883,14 @@ class RightDrawerPanel extends StatelessWidget {
           border: Border.all(color: SepiaTheme.borderSubtle),
         ),
         child: Text(
-          'No durable memory anchors currently active.',
+          'No engine memory anchors currently active.',
           style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.inkMuted),
         ),
       );
     }
 
     return Column(
-      children: recalledAnchors.take(3).map((anchor) {
+      children: anchorsToShow.take(4).map((anchor) {
         return Container(
           margin: const EdgeInsets.only(bottom: 6),
           padding: const EdgeInsets.all(8),
@@ -382,7 +943,7 @@ class RightDrawerPanel extends StatelessWidget {
   Widget _buildCircuitBreakerCard() {
     Color statusColor;
     String statusText;
-    switch (circuitBreakerState) {
+    switch (widget.circuitBreakerState) {
       case CircuitBreakerState.CLOSED:
         statusColor = SepiaTheme.sage;
         statusText = 'CLOSED (Healthy)';
@@ -418,7 +979,7 @@ class RightDrawerPanel extends StatelessWidget {
                 ),
               ),
               Icon(
-                circuitBreakerState == CircuitBreakerState.CLOSED
+                widget.circuitBreakerState == CircuitBreakerState.CLOSED
                     ? Icons.check_circle_outline_rounded
                     : Icons.error_outline_rounded,
                 size: 16,
@@ -428,7 +989,7 @@ class RightDrawerPanel extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Consecutive Failures: $consecutiveFailures / 3',
+            'Consecutive Failures: ${widget.consecutiveFailures} / 3',
             style: SepiaTheme.mono(fontSize: 10, color: SepiaTheme.inkSecondary),
           ),
           const SizedBox(height: 4),
@@ -436,14 +997,14 @@ class RightDrawerPanel extends StatelessWidget {
             'Target: Google Cloud Run (us-central1 / Vertex AI)',
             style: SepiaTheme.mono(fontSize: 9, color: SepiaTheme.inkMuted),
           ),
-          if (circuitBreakerState != CircuitBreakerState.CLOSED) ...[
+          if (widget.circuitBreakerState != CircuitBreakerState.CLOSED) ...[
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.refresh_rounded, size: 14),
                 label: const Text('Reset Circuit Breaker'),
-                onPressed: onResetCircuitBreaker,
+                onPressed: widget.onResetCircuitBreaker,
               ),
             ),
           ],
@@ -452,4 +1013,3 @@ class RightDrawerPanel extends StatelessWidget {
     );
   }
 }
-

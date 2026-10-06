@@ -17,11 +17,15 @@ import 'policy_matrix_view.dart';
 import 'feature_synthesizer_view.dart';
 import 'lorecraft_studio.dart';
 import 'lorecraft_boot_page_view.dart';
+import 'architecture_notebook_view.dart';
 import '../services/lorecraft_service.dart';
+import '../services/app_mode_service.dart';
+import 'widgets/app_mode_slider.dart';
 
 enum ShellNavDestination {
   loreCraftStudio,
   bootSequence,
+  architectureNotebook,
   assistant,
   memoryStudio,
   modelTestBench,
@@ -40,6 +44,7 @@ class _ShellLayoutState extends State<ShellLayout> {
   ShellNavDestination _currentDestination = ShellNavDestination.loreCraftStudio;
   bool _isRightDrawerOpen = true;
   bool _isLeftRailCollapsed = false;
+  final AppModeService _appModeService = AppModeService();
 
   // Services
   final SwitchingRouterService _routerService = SwitchingRouterService();
@@ -66,6 +71,7 @@ class _ShellLayoutState extends State<ShellLayout> {
     super.initState();
     _checkCloudHealth();
     _edgeManager.addListener(_onEdgeManagerChanged);
+    _appModeService.addListener(_onAppModeChanged);
     _edgeManager.init();
   }
 
@@ -73,9 +79,21 @@ class _ShellLayoutState extends State<ShellLayout> {
     if (mounted) setState(() {});
   }
 
+  void _onAppModeChanged() {
+    if (mounted) {
+      if (_appModeService.isSimple &&
+          _currentDestination != ShellNavDestination.loreCraftStudio &&
+          _currentDestination != ShellNavDestination.bootSequence) {
+        _currentDestination = ShellNavDestination.loreCraftStudio;
+      }
+      setState(() {});
+    }
+  }
+
   @override
   void dispose() {
     _edgeManager.removeListener(_onEdgeManagerChanged);
+    _appModeService.removeListener(_onAppModeChanged);
     super.dispose();
   }
 
@@ -377,6 +395,8 @@ class _ShellLayoutState extends State<ShellLayout> {
               recalledAnchors: _memoryService.activeEdgeBundle?.anchors ?? [],
               circuitBreakerState: _routerService.circuitBreakerState,
               consecutiveFailures: _routerService.consecutiveFailures,
+              loreService: _loreCraftService,
+              currentDestination: _currentDestination,
               onResetCircuitBreaker: () {
                 setState(() => _routerService.resetCircuitBreaker());
               },
@@ -410,6 +430,8 @@ class _ShellLayoutState extends State<ShellLayout> {
               recalledAnchors: _memoryService.activeEdgeBundle?.anchors ?? [],
               circuitBreakerState: _routerService.circuitBreakerState,
               consecutiveFailures: _routerService.consecutiveFailures,
+              loreService: _loreCraftService,
+              currentDestination: _currentDestination,
               onResetCircuitBreaker: () {
                 setState(() => _routerService.resetCircuitBreaker());
               },
@@ -489,63 +511,103 @@ class _ShellLayoutState extends State<ShellLayout> {
                         splashRadius: 16,
                         onPressed: () => setState(() => _isLeftRailCollapsed = false),
                       ),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: SepiaTheme.ink,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'AG',
-                            style: TextStyle(
-                              fontFamily: SepiaTheme.fontMono,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 12,
-                              color: SepiaTheme.canvas,
-                            ),
+                      const SizedBox(height: 8),
+                      Tooltip(
+                        message: _appModeService.isSimple
+                            ? 'Mode: Simple (Click for Everything)'
+                            : 'Mode: Everything (Click for Simple)',
+                        child: IconButton(
+                          key: const Key('btn_mode_toggle_collapsed'),
+                          icon: Icon(
+                            _appModeService.isSimple ? Icons.bolt_rounded : Icons.science_outlined,
+                            size: 18,
+                            color: _appModeService.isSimple ? SepiaTheme.sage : SepiaTheme.amber,
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'ANTIGRAVITY',
-                              style: SepiaTheme.sans(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            Text(
-                              'DISTRIBUTED AI // CLIENT',
-                              style: SepiaTheme.mono(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                color: SepiaTheme.inkMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (!isModal)
-                        IconButton(
-                          key: const Key('btn_collapse_shell_nav_rail'),
-                          icon: const Icon(Icons.chevron_left_rounded, size: 20, color: SepiaTheme.inkMuted),
-                          tooltip: 'Collapse navigation rail',
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           splashRadius: 16,
-                          onPressed: () => setState(() => _isLeftRailCollapsed = true),
+                          onPressed: () => _appModeService.toggleMode(),
                         ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: SepiaTheme.ink,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                'AG',
+                                style: TextStyle(
+                                  fontFamily: SepiaTheme.fontMono,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12,
+                                  color: SepiaTheme.canvas,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'ANTIGRAVITY',
+                                  style: SepiaTheme.sans(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                Text(
+                                  'DISTRIBUTED AI // CLIENT',
+                                  style: SepiaTheme.mono(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                    color: SepiaTheme.inkMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!isModal)
+                            IconButton(
+                              key: const Key('btn_collapse_shell_nav_rail'),
+                              icon: const Icon(Icons.chevron_left_rounded, size: 20, color: SepiaTheme.inkMuted),
+                              tooltip: 'Collapse navigation rail',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              splashRadius: 16,
+                              onPressed: () => setState(() => _isLeftRailCollapsed = true),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: AppModeSlider(
+                          modeService: _appModeService,
+                          onModeChanged: (newMode) {
+                            if (newMode == AppDisplayMode.simple) {
+                              if (_currentDestination != ShellNavDestination.loreCraftStudio &&
+                                  _currentDestination != ShellNavDestination.bootSequence) {
+                                setState(() {
+                                  _currentDestination = ShellNavDestination.loreCraftStudio;
+                                });
+                              }
+                            }
+                          },
+                        ),
+                      ),
                     ],
                   ),
           ),
@@ -554,69 +616,123 @@ class _ShellLayoutState extends State<ShellLayout> {
           Expanded(
             child: ListView(
               padding: EdgeInsets.symmetric(
-                vertical: 12,
+                vertical: 8,
                 horizontal: isCollapsed ? 6 : 8,
               ),
-              children: [
-                _buildNavItem(
-                  destination: ShellNavDestination.loreCraftStudio,
-                  title: 'LoreCraft Studio',
-                  subtitle: 'Distributed dynamic world',
-                  icon: Icons.auto_stories_rounded,
-                  badge: 'PRIMARY',
-                  isModal: isModal,
-                ),
-                const SizedBox(height: 4),
-                _buildNavItem(
-                  destination: ShellNavDestination.bootSequence,
-                  title: 'Edge Agent Boot',
-                  subtitle: 'Context hydration & map',
-                  icon: Icons.bolt_rounded,
-                  badge: 'PHASE 1',
-                  isModal: isModal,
-                ),
-                const SizedBox(height: 4),
-                _buildNavItem(
-                  destination: ShellNavDestination.assistant,
-                  title: 'Assistant Workspace',
-                  subtitle: 'Dual execution stream',
-                  icon: Icons.chat_bubble_outline_rounded,
-                  isModal: isModal,
-                ),
-                const SizedBox(height: 4),
-                _buildNavItem(
-                  destination: ShellNavDestination.memoryStudio,
-                  title: 'Memory Studio',
-                  subtitle: '4-stage online/offline loop',
-                  icon: Icons.account_tree_outlined,
-                  badge: '${_memoryService.durableNodes.length} nodes',
-                  isModal: isModal,
-                ),
-                const SizedBox(height: 4),
-                _buildNavItem(
-                  destination: ShellNavDestination.modelTestBench,
-                  title: 'Model Test Bench',
-                  subtitle: 'Multi-model prompt comparison & ratings',
-                  icon: Icons.speed_rounded,
-                  isModal: isModal,
-                ),
-                const SizedBox(height: 4),
-                _buildNavItem(
-                  destination: ShellNavDestination.switchingPolicy,
-                  title: 'Switching Policy',
-                  subtitle: 'Declarative rules matrix',
-                  icon: Icons.rule_rounded,
-                  isModal: isModal,
-                ),
-                const SizedBox(height: 4),
-                _buildNavItem(
-                  destination: ShellNavDestination.featureSynthesizer,
-                  title: 'Feature Synthesizer',
-                  subtitle: 'Memory sandbox builder',
-                  icon: Icons.extension_outlined,
-                  isModal: isModal,
-                ),
-              ],
+              children: _appModeService.isSimple
+                  ? [
+                      _buildNavSectionHeader(
+                        'SHOWCASE',
+                        isCollapsed: isCollapsed,
+                      ),
+                      _buildNavItem(
+                        destination: ShellNavDestination.loreCraftStudio,
+                        title: 'LoreCraft Studio',
+                        subtitle: 'Distributed dynamic RPG world',
+                        icon: Icons.auto_stories_rounded,
+                        badge: 'LIVE RPG',
+                        categoryPrefix: '[Showcase]',
+                        isModal: isModal,
+                      ),
+                      const SizedBox(height: 3),
+                      _buildNavItem(
+                        destination: ShellNavDestination.bootSequence,
+                        title: 'Edge Agent Boot',
+                        subtitle: 'Context hydration & map',
+                        icon: Icons.bolt_rounded,
+                        badge: 'PHASE 1',
+                        categoryPrefix: '[Showcase]',
+                        isModal: isModal,
+                      ),
+                    ]
+                  : [
+                      _buildNavSectionHeader(
+                        'GAME WORLD (LORECRAFT)',
+                        isCollapsed: isCollapsed,
+                      ),
+                      _buildNavItem(
+                        destination: ShellNavDestination.loreCraftStudio,
+                        title: 'LoreCraft Studio',
+                        subtitle: 'Distributed dynamic RPG world',
+                        icon: Icons.auto_stories_rounded,
+                        badge: 'LIVE RPG',
+                        categoryPrefix: '[Game World]',
+                        isModal: isModal,
+                      ),
+                      const SizedBox(height: 3),
+                      _buildNavItem(
+                        destination: ShellNavDestination.bootSequence,
+                        title: 'Edge Agent Boot',
+                        subtitle: 'Context hydration & map',
+                        icon: Icons.bolt_rounded,
+                        badge: 'PHASE 1',
+                        categoryPrefix: '[Game World]',
+                        isModal: isModal,
+                      ),
+                      _buildNavSectionHeader(
+                        'DEVELOPER TOOLS',
+                        isCollapsed: isCollapsed,
+                      ),
+                      _buildNavItem(
+                        destination: ShellNavDestination.architectureNotebook,
+                        title: 'Architecture Notebook',
+                        subtitle: 'Code, switching & dreaming walkthrough',
+                        icon: Icons.menu_book_rounded,
+                        badge: 'NOTEBOOK',
+                        categoryPrefix: '[Dev Tool]',
+                        isModal: isModal,
+                      ),
+                      const SizedBox(height: 3),
+                      _buildNavItem(
+                        destination: ShellNavDestination.memoryStudio,
+                        title: 'Memory Studio',
+                        subtitle: '4-stage online/offline loop',
+                        icon: Icons.account_tree_outlined,
+                        badge: '${_memoryService.durableNodes.length} nodes',
+                        categoryPrefix: '[Dev Tool]',
+                        isModal: isModal,
+                      ),
+                      const SizedBox(height: 3),
+                      _buildNavItem(
+                        destination: ShellNavDestination.modelTestBench,
+                        title: 'Model Test Bench',
+                        subtitle: 'Multi-model matrix & ratings',
+                        icon: Icons.speed_rounded,
+                        badge: '4 MODELS',
+                        categoryPrefix: '[Dev Tool]',
+                        isModal: isModal,
+                      ),
+                      const SizedBox(height: 3),
+                      _buildNavItem(
+                        destination: ShellNavDestination.switchingPolicy,
+                        title: 'Switching Policy',
+                        subtitle: 'Declarative rules matrix',
+                        icon: Icons.rule_rounded,
+                        badge: 'RULES',
+                        categoryPrefix: '[Dev Tool]',
+                        isModal: isModal,
+                      ),
+                      const SizedBox(height: 3),
+                      _buildNavItem(
+                        destination: ShellNavDestination.featureSynthesizer,
+                        title: 'Feature Synthesizer',
+                        subtitle: 'Memory sandbox builder',
+                        icon: Icons.extension_outlined,
+                        badge: 'SANDBOX',
+                        categoryPrefix: '[Dev Tool]',
+                        isModal: isModal,
+                      ),
+                      const SizedBox(height: 3),
+                      _buildNavItem(
+                        destination: ShellNavDestination.assistant,
+                        title: 'Assistant Workspace',
+                        subtitle: 'Dual execution LLM shell',
+                        icon: Icons.chat_bubble_outline_rounded,
+                        badge: 'LLM SHELL',
+                        categoryPrefix: '[Dev Tool]',
+                        isModal: isModal,
+                      ),
+                    ],
             ),
           ),
 
@@ -760,22 +876,47 @@ class _ShellLayoutState extends State<ShellLayout> {
     );
   }
 
+  Widget _buildNavSectionHeader(String label, {required bool isCollapsed}) {
+    if (isCollapsed) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: Divider(color: SepiaTheme.border, height: 1),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(left: 10, right: 10, top: 12, bottom: 4),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: SepiaTheme.sans(
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.6,
+          color: SepiaTheme.inkMuted,
+        ),
+      ),
+    );
+  }
+
   Widget _buildNavItem({
     required ShellNavDestination destination,
     required String title,
     required String subtitle,
     required IconData icon,
     String? badge,
+    String? categoryPrefix,
     bool isModal = false,
   }) {
     final isSelected = _currentDestination == destination;
     final isCollapsed = !isModal && _isLeftRailCollapsed;
 
     if (isCollapsed) {
+      final prefix = categoryPrefix != null ? '$categoryPrefix ' : '';
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Tooltip(
-          message: '$title\n$subtitle${badge != null ? " [$badge]" : ""}',
+          message: '$prefix$title\n$subtitle${badge != null ? " [$badge]" : ""}',
           waitDuration: const Duration(milliseconds: 200),
           child: InkWell(
             onTap: () {
@@ -893,7 +1034,12 @@ class _ShellLayoutState extends State<ShellLayout> {
   Widget _buildCenterBody() {
     switch (_currentDestination) {
       case ShellNavDestination.loreCraftStudio:
-        return LoreCraftStudio(loreService: _loreCraftService);
+        return LoreCraftStudio(
+          loreService: _loreCraftService,
+          onNavigateToDestination: (dest) => setState(() => _currentDestination = dest),
+          isRightDrawerOpen: _isRightDrawerOpen,
+          onToggleRightDrawer: () => setState(() => _isRightDrawerOpen = !_isRightDrawerOpen),
+        );
       case ShellNavDestination.bootSequence:
         return LoreCraftBootPageView(
           loreService: _loreCraftService,
@@ -928,6 +1074,12 @@ class _ShellLayoutState extends State<ShellLayout> {
         return const PolicyMatrixView();
       case ShellNavDestination.featureSynthesizer:
         return FeatureSynthesizerView(memoryService: _memoryService);
+      case ShellNavDestination.architectureNotebook:
+        return ArchitectureNotebookView(
+          edgeManager: _edgeManager,
+          routerService: _routerService,
+          memoryService: _memoryService,
+        );
     }
   }
 }

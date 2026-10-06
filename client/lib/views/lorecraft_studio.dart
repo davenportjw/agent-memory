@@ -9,13 +9,22 @@ import 'widgets/lorecraft_router_dial.dart';
 import 'widgets/lorecraft_foresight_pill.dart';
 import 'widgets/objective_milestone_toast.dart';
 import 'lorecraft_boot_page_view.dart';
+import '../services/app_mode_service.dart';
+
+import 'shell_layout.dart';
 
 class LoreCraftStudio extends StatefulWidget {
   final LoreCraftService loreService;
+  final void Function(ShellNavDestination destination)? onNavigateToDestination;
+  final bool? isRightDrawerOpen;
+  final VoidCallback? onToggleRightDrawer;
 
   const LoreCraftStudio({
     super.key,
     required this.loreService,
+    this.onNavigateToDestination,
+    this.isRightDrawerOpen,
+    this.onToggleRightDrawer,
   });
 
   @override
@@ -139,39 +148,44 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 1100;
-        final showRightDrawer = _isRightDrawerOpen && !isCompact;
+    return AnimatedBuilder(
+      animation: AppModeService(),
+      builder: (context, _) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 1100;
+            final showRightDrawer = widget.onToggleRightDrawer == null && _isRightDrawerOpen && !isCompact;
 
-        return Scaffold(
-          backgroundColor: SepiaTheme.canvas,
-          body: Row(
-            children: [
-              // Left Panel: World Context & Character Roster
-              if (_isLeftPanelOpen) ...[
-                SizedBox(
-                  width: 280,
-                  child: _buildLeftPanel(context),
-                ),
-                const VerticalDivider(width: 1, thickness: 1, color: SepiaTheme.border),
-              ],
+            return Scaffold(
+              backgroundColor: SepiaTheme.canvas,
+              body: Row(
+                children: [
+                  // Left Panel: World Context & Character Roster
+                  if (_isLeftPanelOpen) ...[
+                    SizedBox(
+                      width: 280,
+                      child: _buildLeftPanel(context),
+                    ),
+                    const VerticalDivider(width: 1, thickness: 1, color: SepiaTheme.border),
+                  ],
 
-              // Center Panel: Interactive Dialogue Stream
-              Expanded(
-                child: _buildCenterPanel(context),
+                  // Center Panel: Interactive Dialogue Stream
+                  Expanded(
+                    child: _buildCenterPanel(context),
+                  ),
+
+                  // Right Panel: Living Lore & Canon Arbiter Drawer
+                  if (showRightDrawer) ...[
+                    const VerticalDivider(width: 1, thickness: 1, color: SepiaTheme.border),
+                    SizedBox(
+                      width: 300,
+                      child: _buildRightPanel(context),
+                    ),
+                  ],
+                ],
               ),
-
-              // Right Panel: Living Lore & Canon Arbiter Drawer
-              if (showRightDrawer) ...[
-                const VerticalDivider(width: 1, thickness: 1, color: SepiaTheme.border),
-                SizedBox(
-                  width: 300,
-                  child: _buildRightPanel(context),
-                ),
-              ],
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -470,33 +484,35 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
                         'Select Sector Contact',
                         style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.inkMuted),
                       ),
-                      InkWell(
-                        key: const Key('btn_revisit_boot_sequence_briefing'),
-                        onTap: () => s.resetToBootState(),
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: SepiaTheme.amber.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: SepiaTheme.amber.withValues(alpha: 0.5),
-                              width: 1,
+                      if (!AppModeService().isSimple) ...[
+                        InkWell(
+                          key: const Key('btn_revisit_boot_sequence_briefing'),
+                          onTap: () => s.resetToBootState(),
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: SepiaTheme.amber.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: SepiaTheme.amber.withValues(alpha: 0.5),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.bolt, size: 13, color: SepiaTheme.amber),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'BOOT SEQUENCE',
+                                  style: SepiaTheme.mono(fontSize: 10, fontWeight: FontWeight.w700, color: SepiaTheme.ink),
+                                ),
+                              ],
                             ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.bolt, size: 13, color: SepiaTheme.amber),
-                              const SizedBox(width: 4),
-                              Text(
-                                'BOOT SEQUENCE',
-                                style: SepiaTheme.mono(fontSize: 10, fontWeight: FontWeight.w700, color: SepiaTheme.ink),
-                              ),
-                            ],
-                          ),
                         ),
-                      ),
+                      ],
                       Text(
                         '0.0 KB Cloud Egress',
                         style: SepiaTheme.mono(fontSize: 11, fontWeight: FontWeight.w700, color: SepiaTheme.sage),
@@ -578,45 +594,47 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
                 runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  InkWell(
-                    key: const Key('btn_revisit_boot_sequence'),
-                    onTap: () => s.resetToBootState(),
-                    borderRadius: BorderRadius.circular(14),
-                    child: Tooltip(
-                      message: 'Inspect Edge Envoy Boot Architecture & Memory Lifecycle',
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: SepiaTheme.amber.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: SepiaTheme.amber.withValues(alpha: 0.5),
-                            width: 1,
+                  if (!AppModeService().isSimple) ...[
+                    InkWell(
+                      key: const Key('btn_revisit_boot_sequence'),
+                      onTap: () => s.resetToBootState(),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Tooltip(
+                        message: 'Inspect Edge Envoy Boot Architecture & Memory Lifecycle',
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: SepiaTheme.amber.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: SepiaTheme.amber.withValues(alpha: 0.5),
+                              width: 1,
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.bolt,
-                              size: 13,
-                              color: SepiaTheme.amber,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'BOOT SEQUENCE',
-                              style: SepiaTheme.mono(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: SepiaTheme.ink,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.bolt,
+                                size: 13,
+                                color: SepiaTheme.amber,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 4),
+                              Text(
+                                'BOOT SEQUENCE',
+                                style: SepiaTheme.mono(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: SepiaTheme.ink,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
+                    const SizedBox(width: 8),
+                  ],
                   InkWell(
                     key: const Key('btn_mission_dossier'),
                     onTap: () => _showMissionDossierDialog(context),
@@ -655,69 +673,118 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  InkWell(
-                    onTap: () => s.toggleHideTextIfGenerativeUi(),
-                    borderRadius: BorderRadius.circular(14),
-                    child: Tooltip(
-                      message: s.hideTextIfGenerativeUi
-                          ? 'Generative UI Text: Hiding redundant outer speech'
-                          : 'Generative UI Text: Showing redundant outer speech',
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: s.hideTextIfGenerativeUi
-                              ? SepiaTheme.sage.withValues(alpha: 0.15)
-                              : SepiaTheme.paperSubtle,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: s.hideTextIfGenerativeUi
-                                ? SepiaTheme.sage
-                                : SepiaTheme.border,
-                            width: 1,
+                  if (!AppModeService().isSimple && widget.onNavigateToDestination != null) ...[
+                    const SizedBox(width: 8),
+                    InkWell(
+                      key: const Key('btn_open_game_memory_dev_tool'),
+                      onTap: () => widget.onNavigateToDestination!(ShellNavDestination.memoryStudio),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Tooltip(
+                        message: 'Developer Diagnostic: Inspect live game turns and canon nodes in Memory Studio',
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: SepiaTheme.paperSubtle,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: SepiaTheme.border,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.account_tree_outlined,
+                                size: 13,
+                                color: SepiaTheme.slate,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'DEV MEMORY ➔',
+                                style: SepiaTheme.mono(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: SepiaTheme.slate,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              s.hideTextIfGenerativeUi
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              size: 13,
+                      ),
+                    ),
+                  ],
+                  if (!AppModeService().isSimple) ...[
+                    const SizedBox(width: 8),
+                    InkWell(
+                      key: const Key('btn_toggle_genui_verbosity'),
+                      onTap: () => s.toggleHideTextIfGenerativeUi(),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Tooltip(
+                        message: s.hideTextIfGenerativeUi
+                            ? 'Generative UI Text: Hiding redundant outer speech'
+                            : 'Generative UI Text: Showing redundant outer speech',
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: s.hideTextIfGenerativeUi
+                                ? SepiaTheme.sage.withValues(alpha: 0.15)
+                                : SepiaTheme.paperSubtle,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
                               color: s.hideTextIfGenerativeUi
                                   ? SepiaTheme.sage
-                                  : SepiaTheme.inkMuted,
+                                  : SepiaTheme.border,
+                              width: 1,
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              s.hideTextIfGenerativeUi ? 'GEN-UI CLEAN' : 'GEN-UI VERBOSE',
-                              style: SepiaTheme.mono(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                s.hideTextIfGenerativeUi
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                size: 13,
                                 color: s.hideTextIfGenerativeUi
                                     ? SepiaTheme.sage
                                     : SepiaTheme.inkMuted,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 4),
+                              Text(
+                                s.hideTextIfGenerativeUi ? 'GEN-UI CLEAN' : 'GEN-UI VERBOSE',
+                                style: SepiaTheme.mono(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: s.hideTextIfGenerativeUi
+                                      ? SepiaTheme.sage
+                                      : SepiaTheme.inkMuted,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                   const SizedBox(width: 8),
                   Text(
-                    '< 60ms TTFT',
+                    '⚡ < 60ms Edge TTFT (0 KB)',
                     style: SepiaTheme.mono(fontSize: 11, fontWeight: FontWeight.w700, color: SepiaTheme.sage),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: Icon(_isRightDrawerOpen ? Icons.menu_open : Icons.menu, size: 20, color: SepiaTheme.inkMuted),
+                    key: const Key('btn_toggle_living_lore_inspector'),
+                    icon: Icon((widget.isRightDrawerOpen ?? _isRightDrawerOpen) ? Icons.menu_open : Icons.menu, size: 20, color: SepiaTheme.inkMuted),
                     tooltip: 'Toggle Living Lore Inspector',
                     onPressed: () {
-                      setState(() {
-                        _isRightDrawerOpen = !_isRightDrawerOpen;
-                      });
+                      if (widget.onToggleRightDrawer != null) {
+                        widget.onToggleRightDrawer!();
+                      } else {
+                        setState(() {
+                          _isRightDrawerOpen = !_isRightDrawerOpen;
+                        });
+                      }
                     },
                   ),
                 ],
@@ -966,10 +1033,12 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
           const SizedBox(height: 12),
 
           // Canon & Voice Arbiter Card
-          LoreCraftCanonArbiterCard(
-            rating: s.latestCanonRating,
-          ),
-          const SizedBox(height: 14),
+          if (!AppModeService().isSimple) ...[
+            LoreCraftCanonArbiterCard(
+              rating: s.latestCanonRating,
+            ),
+            const SizedBox(height: 14),
+          ],
 
           // Grounding Memory Anchors (< 50 KB Bundle)
           Text(
@@ -1082,6 +1151,24 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
               minHeight: 5,
             ),
           ),
+          if (!AppModeService().isSimple && widget.onNavigateToDestination != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const Key('btn_drawer_open_memory_studio'),
+                icon: const Icon(Icons.account_tree_outlined, size: 13),
+                label: const Text('INSPECT IN MEMORY STUDIO ➔', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: SepiaTheme.slate,
+                  side: const BorderSide(color: SepiaTheme.border),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                ),
+                onPressed: () => widget.onNavigateToDestination!(ShellNavDestination.memoryStudio),
+              ),
+            ),
+          ],
         ],
       ),
     );

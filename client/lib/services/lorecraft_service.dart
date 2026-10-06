@@ -2013,7 +2013,7 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
     final npc = activeNpc;
     // Auto-update region to match NPC habitat
     final matchingRegion = regions.firstWhere((r) => r.id == (npc.id == 'gideon' ? 'foundry' : npc.id == 'lyra' ? 'docks' : 'spire'));
-    activeRegionId = matchingRegion.id;
+    setActiveRegion(matchingRegion.id);
 
     // Add greeting turn from new NPC
     final greeting = npc.id == 'gideon'
@@ -2058,25 +2058,28 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
   }
 
   void setActiveRegion(String regionId) {
-    if (activeRegionId == regionId) return;
+    if (activeRegionId == regionId && memoryService.activePrefetchedSceneId == regionId) return;
     activeRegionId = regionId;
 
     // Trigger state-based prefetching based on the new region context
     switch (regionId) {
       case 'foundry':
         memoryService.triggerStatePrefetch(
+          sceneId: 'foundry',
           stateTrigger: 'State Shift: Approaching Ironforge Foundry',
           topicIds: ['volcanic_slag_thresholds', 'iron_vanguard_ciphers'],
         );
         break;
       case 'docks':
         memoryService.triggerStatePrefetch(
+          sceneId: 'docks',
           stateTrigger: 'State Shift: Descending into Oakhaven Docks',
           topicIds: ['undercity_sluice_bypass', 'smuggler_cipher_routes'],
         );
         break;
       case 'spire':
         memoryService.triggerStatePrefetch(
+          sceneId: 'spire',
           stateTrigger: 'State Shift: Ascending Archivist Spire',
           topicIds: ['keystone_spire_harmonics', 'ancient_grove_roots'],
         );

@@ -138,5 +138,26 @@ void main() {
       // Verify SnackBar notification
       expect(find.textContaining('Gemma 4 2B weights unloaded'), findsOneWidget);
     });
+
+    testWidgets('renders compact labels when isCompact is true', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: GemmaLoadPill(edgeManager: manager, isCompact: true),
+            ),
+          ),
+        ),
+      );
+
+      // Unloaded compact label
+      expect(find.text('Load Gemma 4'), findsOneWidget);
+
+      // Transition to loaded compact state
+      manager.setGemmaLoaded(true);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Gemma 4 Ready'), findsOneWidget);
+    });
   });
 }

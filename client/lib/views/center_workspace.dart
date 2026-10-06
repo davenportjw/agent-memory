@@ -155,134 +155,189 @@ class _CenterWorkspaceState extends State<CenterWorkspace> {
     );
   }
 
-  Widget _buildWorkspaceHeader() {
-    final isCompact = MediaQuery.of(context).size.width < 900;
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: const BoxDecoration(
-        color: SepiaTheme.canvas,
-        border: Border(bottom: BorderSide(color: SepiaTheme.border)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                if (isCompact) ...[
-                  Builder(
-                    builder: (ctx) => IconButton(
-                      icon: const Icon(Icons.menu_rounded, size: 20, color: SepiaTheme.ink),
-                      onPressed: () => Scaffold.of(ctx).openDrawer(),
-                      tooltip: 'Navigation Menu',
-                      splashRadius: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                ],
-                const Icon(Icons.hub_outlined, size: 16, color: SepiaTheme.ink),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    isCompact ? 'DUAL WORKSPACE' : 'ACTIVE SESSION // DUAL EDGE-CLOUD WORKSPACE',
-                    overflow: TextOverflow.ellipsis,
-                    style: SepiaTheme.sans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+  Widget _buildProbeChip({required bool isCompact}) {
+    return InkWell(
+      onTap: () {
+        _runLiveProbe();
+        if (!widget.isDrawerOpen) {
+          widget.onToggleDrawer();
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Tooltip(
+        message: 'Edge probe latency. Click to re-probe and inspect live telemetry.',
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 6 : 8,
+            vertical: 3,
           ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              reverse: true,
-              child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Latency Probe Chip (Interactive Live Measured Probe)
-                InkWell(
-                  onTap: () {
-                    _runLiveProbe();
-                    if (!widget.isDrawerOpen) {
-                      widget.onToggleDrawer();
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: Tooltip(
-                    message: 'Edge probe latency. Click to re-probe and inspect live telemetry.',
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: SepiaTheme.paper,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: SepiaTheme.border),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: _liveProbeLatencyMs != null ? SepiaTheme.sage : SepiaTheme.amber,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            _liveProbeLatencyMs != null ? 'Edge Probe: ${_liveProbeLatencyMs}ms' : 'Probing...',
-                            style: SepiaTheme.mono(fontSize: 10, color: SepiaTheme.inkSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+          decoration: BoxDecoration(
+            color: SepiaTheme.paper,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: SepiaTheme.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: _liveProbeLatencyMs != null ? SepiaTheme.sage : SepiaTheme.amber,
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(width: 8),
-                // Unified Execution & Routing Control Pill
-                _buildExecutionRoutingPill(),
-                if (widget.edgeManager != null) ...[
-                  const SizedBox(width: 6),
-                  GemmaLoadPill(edgeManager: widget.edgeManager!),
-                ],
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                  onPressed: widget.onClearChat,
-                  tooltip: 'Clear Chat History',
-                  splashRadius: 18,
-                ),
-                Builder(
-                  builder: (ctx) => IconButton(
-                    icon: Icon(
-                      widget.isDrawerOpen ? Icons.dock_rounded : Icons.view_sidebar_outlined,
-                      size: 18,
-                      color: widget.isDrawerOpen ? SepiaTheme.amber : SepiaTheme.ink,
-                    ),
-                    onPressed: () {
-                      if (isCompact) {
-                        Scaffold.of(ctx).openEndDrawer();
-                      } else {
-                        widget.onToggleDrawer();
-                      }
-                    },
-                    tooltip: widget.isDrawerOpen ? 'Close Inspector' : 'Open Inspector',
-                    splashRadius: 18,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                _liveProbeLatencyMs != null
+                    ? (isCompact ? '${_liveProbeLatencyMs}ms' : 'Edge Probe: ${_liveProbeLatencyMs}ms')
+                    : (isCompact ? 'Probing' : 'Probing...'),
+                style: SepiaTheme.mono(fontSize: 10, color: SepiaTheme.inkSecondary),
+              ),
+            ],
           ),
         ),
-      ],
-    ),
-  );
-}
+      ),
+    );
+  }
+
+  Widget _buildWorkspaceHeader() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final workspaceWidth = constraints.maxWidth;
+        final isCompact = workspaceWidth < 820;
+        final isUltraCompact = workspaceWidth < 600;
+        final isMobile = MediaQuery.of(context).size.width < 900;
+
+        final String titleText;
+        if (workspaceWidth >= 900) {
+          titleText = 'ASSISTANT SHELL // DUAL EDGE-CLOUD WORKSPACE';
+        } else if (workspaceWidth >= 600) {
+          titleText = 'ASSISTANT SHELL';
+        } else {
+          titleText = 'ASSISTANT';
+        }
+
+        final actions = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Latency Probe Chip (shown on screens 600px and wider)
+            if (workspaceWidth >= 600) ...[
+              _buildProbeChip(isCompact: isCompact),
+              const SizedBox(width: 6),
+            ],
+            // Unified Execution & Routing Control Pill
+            _buildExecutionRoutingPill(isCompact: isCompact),
+            if (widget.edgeManager != null) ...[
+              const SizedBox(width: 6),
+              GemmaLoadPill(
+                edgeManager: widget.edgeManager!,
+                isCompact: isCompact,
+              ),
+            ],
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              onPressed: widget.onClearChat,
+              tooltip: 'Clear Chat History',
+              splashRadius: 18,
+            ),
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: Icon(
+                  widget.isDrawerOpen ? Icons.dock_rounded : Icons.view_sidebar_outlined,
+                  size: 18,
+                  color: widget.isDrawerOpen ? SepiaTheme.amber : SepiaTheme.ink,
+                ),
+                onPressed: () {
+                  if (isMobile) {
+                    Scaffold.of(ctx).openEndDrawer();
+                  } else {
+                    widget.onToggleDrawer();
+                  }
+                },
+                tooltip: widget.isDrawerOpen ? 'Close Inspector' : 'Open Inspector',
+                splashRadius: 18,
+              ),
+            ),
+          ],
+        );
+
+        return Container(
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: const BoxDecoration(
+            color: SepiaTheme.canvas,
+            border: Border(bottom: BorderSide(color: SepiaTheme.border)),
+          ),
+          child: Row(
+            children: [
+              // 1. Left Title Block (bounded to at most 45% of workspace width, naturally sized)
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: workspaceWidth * 0.45),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isMobile) ...[
+                      Builder(
+                        builder: (ctx) => IconButton(
+                          icon: const Icon(Icons.menu_rounded, size: 20, color: SepiaTheme.ink),
+                          onPressed: () => Scaffold.of(ctx).openDrawer(),
+                          tooltip: 'Navigation Menu',
+                          splashRadius: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    if (!isUltraCompact && workspaceWidth >= 740) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: SepiaTheme.paperSubtle,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: SepiaTheme.borderSubtle),
+                        ),
+                        child: Text(
+                          'DEV TOOL',
+                          style: SepiaTheme.mono(fontSize: 9, fontWeight: FontWeight.w700, color: SepiaTheme.inkMuted),
+                        ),
+                      ),
+                    ],
+                    const Icon(Icons.hub_outlined, size: 16, color: SepiaTheme.ink),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        titleText,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: SepiaTheme.sans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // 2. Right Action Pills (takes all remaining width, scrollable if very narrow)
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: actions,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   bool _shouldShowGeminiNanoBanner() {
     final mgr = widget.edgeManager;
@@ -293,7 +348,7 @@ class _CenterWorkspaceState extends State<CenterWorkspace> {
     return false;
   }
 
-  Widget _buildExecutionRoutingPill() {
+  Widget _buildExecutionRoutingPill({bool isCompact = false}) {
     final mgr = widget.edgeManager;
     final mode = widget.currentOverride;
 
@@ -305,7 +360,15 @@ class _CenterWorkspaceState extends State<CenterWorkspace> {
       case RouterModeOverride.auto:
         modeIcon = Icons.bolt_rounded;
         modeColor = SepiaTheme.ink;
-        if (mgr != null) {
+        if (isCompact) {
+          if (mgr != null && mgr.isGeminiNanoActive) {
+            modeLabel = 'Auto (Nano)';
+          } else if (mgr != null && mgr.selectedEngine == EdgeEngineSelection.gemma4) {
+            modeLabel = 'Auto (Gemma)';
+          } else {
+            modeLabel = 'Auto';
+          }
+        } else if (mgr != null) {
           if (mgr.isGeminiNanoActive) {
             modeLabel = 'Auto (Gemini Nano)';
           } else {
@@ -318,7 +381,15 @@ class _CenterWorkspaceState extends State<CenterWorkspace> {
       case RouterModeOverride.enforceEdgeLocal:
         modeIcon = Icons.memory_rounded;
         modeColor = SepiaTheme.sage;
-        if (mgr != null) {
+        if (isCompact) {
+          if (mgr != null && mgr.selectedEngine == EdgeEngineSelection.geminiNano) {
+            modeLabel = 'Local (Nano)';
+          } else if (mgr != null && mgr.selectedEngine == EdgeEngineSelection.gemma4) {
+            modeLabel = 'Local (Gemma)';
+          } else {
+            modeLabel = 'Local';
+          }
+        } else if (mgr != null) {
           if (mgr.selectedEngine == EdgeEngineSelection.geminiNano) {
             if (mgr.isGeminiNanoActive) {
               modeLabel = 'Local: Gemini Nano';
@@ -345,12 +416,12 @@ class _CenterWorkspaceState extends State<CenterWorkspace> {
       case RouterModeOverride.enforceCloudFlash:
         modeIcon = Icons.cloud_outlined;
         modeColor = SepiaTheme.amber;
-        modeLabel = 'Cloud: Gemini 3.8 Flash';
+        modeLabel = isCompact ? 'Cloud' : 'Cloud: Gemini 3.8 Flash';
         break;
       case RouterModeOverride.simulateOffline:
         modeIcon = Icons.cloud_off_rounded;
         modeColor = SepiaTheme.terracotta;
-        modeLabel = 'Simulate Offline';
+        modeLabel = isCompact ? 'Offline' : 'Simulate Offline';
         break;
     }
 
@@ -558,7 +629,7 @@ class _CenterWorkspaceState extends State<CenterWorkspace> {
           return items;
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 7 : 10, vertical: 4),
           decoration: BoxDecoration(
             color: SepiaTheme.paper,
             borderRadius: BorderRadius.circular(14),
@@ -578,12 +649,12 @@ class _CenterWorkspaceState extends State<CenterWorkspace> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Creating Model...',
+                  isCompact ? 'Creating...' : 'Creating Model...',
                   style: SepiaTheme.mono(fontSize: 10, fontWeight: FontWeight.w700, color: SepiaTheme.terracotta),
                 ),
               ] else ...[
                 Icon(modeIcon, size: 13, color: modeColor),
-                const SizedBox(width: 6),
+                SizedBox(width: isCompact ? 4 : 6),
                 Text(
                   modeLabel,
                   style: SepiaTheme.mono(

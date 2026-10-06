@@ -30,6 +30,8 @@ class MemoryLifecycleStudio extends StatefulWidget {
 class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
   int _selectedStageIndex = 0;
   final ScrollController _scrollController = ScrollController();
+  String _selectedSourceFilter = 'ALL';
+  bool _isMechanismsGuideExpanded = true;
 
   final GlobalKey _cell1Key = GlobalKey();
   final GlobalKey _cell2Key = GlobalKey();
@@ -107,6 +109,10 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
                 _buildStudioHeader(bundle, isWithinBudget, isMobile),
                 const SizedBox(height: 16),
 
+                // Mechanism Guide: Creation, Redaction, Usage, Removal
+                _buildMemoryMechanismsGuide(),
+                const SizedBox(height: 16),
+
                 // Section A: Interactive Request/Response Lifecycle Diagram
                 MemoryRequestResponseDiagram(
                   selectedStageIndex: _selectedStageIndex,
@@ -131,6 +137,7 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
                   child: MemoryTreeView(
                     localTree: widget.memoryService.getLocalMemoryTree(),
                     cloudTree: widget.memoryService.getCloudKnowledgeTree(),
+                    diffTree: widget.memoryService.getEdgeCloudDiffTree(),
                     onInspectContradiction: (cr, node) {
                       _showContradictionDetailsDialog(context, node, cr.priorDirective);
                     },
@@ -183,6 +190,31 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: SepiaTheme.paperSubtle,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: SepiaTheme.borderSubtle),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.build_circle_outlined, size: 12, color: SepiaTheme.inkMuted),
+                  const SizedBox(width: 6),
+                  Text(
+                    'DEVELOPER TOOL // SYSTEM DIAGNOSTIC',
+                    style: SepiaTheme.mono(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                      color: SepiaTheme.inkMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -248,6 +280,42 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
                 color: isWithinBudget ? SepiaTheme.sage : SepiaTheme.terracotta,
               ),
             ),
+
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'SOURCE FILTER:',
+                  style: SepiaTheme.sans(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: SepiaTheme.inkMuted,
+                  ),
+                ),
+                _buildFilterPill(
+                  label: 'ALL SOURCES (${widget.memoryService.workingContext.length})',
+                  isSelected: _selectedSourceFilter == 'ALL',
+                  onTap: () => setState(() => _selectedSourceFilter = 'ALL'),
+                ),
+                _buildFilterPill(
+                  label: '⚔ LORECRAFT GAME WORLD (${widget.memoryService.loreCraftWorkingTurnsCount})',
+                  isSelected: _selectedSourceFilter == 'LORECRAFT',
+                  onTap: () => setState(() => _selectedSourceFilter = 'LORECRAFT'),
+                  icon: Icons.auto_stories_rounded,
+                ),
+                _buildFilterPill(
+                  label: '💬 ASSISTANT SHELL (${widget.memoryService.assistantWorkingTurnsCount})',
+                  isSelected: _selectedSourceFilter == 'ASSISTANT',
+                  onTap: () => setState(() => _selectedSourceFilter = 'ASSISTANT'),
+                  icon: Icons.chat_bubble_outline_rounded,
+                ),
+              ],
+            ),
+
             if (isMobile) ...[
               const SizedBox(height: 12),
               SizedBox(
@@ -267,12 +335,219 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
     );
   }
 
+  Widget _buildFilterPill({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    IconData? icon,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? SepiaTheme.ink : SepiaTheme.paperSubtle,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? SepiaTheme.ink : SepiaTheme.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 12, color: isSelected ? SepiaTheme.paper : SepiaTheme.inkMuted),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: SepiaTheme.sans(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? SepiaTheme.paper : SepiaTheme.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMemoryMechanismsGuide() {
+    return Card(
+      color: SepiaTheme.paper,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: SepiaTheme.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: () => setState(() => _isMechanismsGuideExpanded = !_isMechanismsGuideExpanded),
+              borderRadius: BorderRadius.circular(4),
+              child: Row(
+                children: [
+                  const Icon(Icons.school_outlined, size: 16, color: SepiaTheme.amber),
+                  const SizedBox(width: 8),
+                  Text(
+                    'HOW MEMORY WORKS: 4 CORE MECHANISMS',
+                    style: SepiaTheme.sans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                      color: SepiaTheme.ink,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    _isMechanismsGuideExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                    size: 18,
+                    color: SepiaTheme.inkMuted,
+                  ),
+                ],
+              ),
+            ),
+            if (_isMechanismsGuideExpanded) ...[
+              const SizedBox(height: 12),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 900;
+                  final cards = [
+                    _buildMechanismCard(
+                      stepNumber: '1',
+                      title: 'Memory Creation',
+                      icon: Icons.add_circle_outline_rounded,
+                      color: SepiaTheme.sage,
+                      headline: 'Turn Capture -> Working Context',
+                      howItWorks:
+                          'Player interaction or prompt is executed -> Structured into an EpisodicTurn with extracted entities (NPCs, Factions, Directives) -> Committed to local RAM (<2 GB ceiling) and queued into SQLite.',
+                    ),
+                    _buildMechanismCard(
+                      stepNumber: '2',
+                      title: 'PII Redaction',
+                      icon: Icons.security_rounded,
+                      color: SepiaTheme.terracotta,
+                      headline: 'On-Device Scrubbing -> Route Lock',
+                      howItWorks:
+                          'Local regex detects credentials, phone numbers, or emails -> Replaces matches with [REDACTED_...] masks -> Router enforces EDGE_LOCAL lock ensuring 0 KB cloud egress.',
+                    ),
+                    _buildMechanismCard(
+                      stepNumber: '3',
+                      title: 'Memory Usage',
+                      icon: Icons.auto_stories_rounded,
+                      color: SepiaTheme.amber,
+                      headline: 'Distilled Edge Bundle (<50 KB) Grounding',
+                      howItWorks:
+                          'Durable knowledge is distilled into compact anchors (<50 KB) -> Loaded into RAM -> Pre-injected into Gemma 4 system prompt at 0ms latency without cloud API overhead.',
+                    ),
+                    _buildMechanismCard(
+                      stepNumber: '4',
+                      title: 'Removal & Consolidation',
+                      icon: Icons.cleaning_services_rounded,
+                      color: SepiaTheme.slate,
+                      headline: 'LRU Eviction + Cloud Run Harmonization',
+                      howItWorks:
+                          'Oldest turns are evicted from RAM via LRU. When online, pending queue syncs to Cloud Run where Gemini 3.8 Flash resolves contradictions into the immutable Firestore graph.',
+                    ),
+                  ];
+
+                  if (isWide) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: cards
+                          .map((c) => Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: c,
+                                ),
+                              ))
+                          .toList(),
+                    );
+                  } else {
+                    return Column(
+                      children: cards
+                          .map((c) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: c,
+                              ))
+                          .toList(),
+                    );
+                  }
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMechanismCard({
+    required String stepNumber,
+    required String title,
+    required IconData icon,
+    required Color color,
+    required String headline,
+    required String howItWorks,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: SepiaTheme.paperSubtle,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: SepiaTheme.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 18,
+                height: 18,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                child: Text(
+                  stepNumber,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  style: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.w700, color: SepiaTheme.ink),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(icon, size: 14, color: color),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            headline,
+            style: SepiaTheme.mono(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            howItWorks,
+            style: SepiaTheme.sans(fontSize: 11, color: SepiaTheme.inkSecondary, height: 1.35),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ==========================================
   // Notebook Cells (Stages 1 to 4)
   // ==========================================
 
   Widget _buildCell1WorkingMemory() {
-    final turns = widget.memoryService.workingContext;
+    final turns = widget.memoryService.getWorkingContextForSource(_selectedSourceFilter);
 
     return KeyedSubtree(
       key: _cell1Key,
@@ -308,7 +583,8 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
             ),
             const SizedBox(height: 8),
             if (turns.isEmpty)
-              Text('No active working turns.', style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.inkMuted))
+              Text('No active working turns for source "$_selectedSourceFilter".',
+                  style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.inkMuted))
             else
               for (final turn in turns) _buildTurnRow(turn),
           ],
@@ -318,6 +594,7 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
   }
 
   Widget _buildTurnRow(EpisodicTurn turn) {
+    final isLoreCraft = turn.sessionId.toLowerCase().contains('lorecraft');
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
@@ -331,6 +608,36 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
         children: [
           Row(
             children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isLoreCraft ? SepiaTheme.amber.withValues(alpha: 0.15) : SepiaTheme.paper,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: isLoreCraft ? SepiaTheme.amber.withValues(alpha: 0.5) : SepiaTheme.borderSubtle,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isLoreCraft ? Icons.auto_stories_rounded : Icons.chat_bubble_outline_rounded,
+                      size: 10,
+                      color: isLoreCraft ? SepiaTheme.amber : SepiaTheme.inkMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isLoreCraft ? '⚔ LORECRAFT GAME' : '💬 ASSISTANT',
+                      style: SepiaTheme.mono(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: isLoreCraft ? SepiaTheme.amber : SepiaTheme.inkMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
               SepiaTheme.statusDot(
                 turn.isPiiSanitized ? SepiaTheme.sage : SepiaTheme.slate,
                 turn.isPiiSanitized ? '🔒 PII Scrubbed' : '● Clean',
@@ -378,7 +685,7 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
   }
 
   Widget _buildCell2ShortTermMemory() {
-    final queue = widget.memoryService.ingestionQueue;
+    final queue = widget.memoryService.getIngestionQueueForSource(_selectedSourceFilter);
 
     return KeyedSubtree(
       key: _cell2Key,

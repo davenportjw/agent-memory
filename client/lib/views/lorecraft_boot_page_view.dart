@@ -4,6 +4,7 @@ import '../services/local_memory_service.dart';
 import '../services/audio_feedback_service.dart';
 import '../models/edge_memory_architecture.dart';
 import '../theme/sepia_theme.dart';
+import '../services/app_mode_service.dart';
 import 'widgets/education_assessment_card.dart';
 
 /// LoreCraftBootPageView:
@@ -117,16 +118,20 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
     AudioFeedbackService.instance.playClick();
     setState(() {
       _isPerformingAction = true;
-      _statusBannerMessage = 'Detecting state shift: "$triggerText"... Pre-emptively fetching domain context...';
+      _statusBannerMessage = 'Detecting state shift: "$triggerText"... Updating predictive edge cache...';
     });
 
     try {
       final event = await widget.memoryService.triggerStatePrefetch(
+        sceneId: regionId,
         stateTrigger: triggerText,
         topicIds: topicIds,
       );
+      final evictText = event.evictedTopicIds.isNotEmpty
+          ? ' Evicted ${event.evictedTopicIds.length} previous scene file(s) (${event.bytesEvicted} B).'
+          : '';
       setState(() {
-        _statusBannerMessage = 'PREFETCH COMPLETE: Cached ${event.bytesCached} B in ${event.latencyMs}ms. Future queries resolve in 0ms local cache.';
+        _statusBannerMessage = 'PREFETCH COMPLETE: Cached ${event.bytesCached} B in ${event.latencyMs}ms.$evictText Zero-latency 0ms local query readiness confirmed.';
       });
     } catch (e) {
       setState(() {
@@ -164,49 +169,56 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
 
   @override
   Widget build(BuildContext context) {
-    final bootState = widget.memoryService.bootState;
-    final env = widget.memoryService.environmentalState;
-    final directives = widget.memoryService.coreDirectives;
-    final masterIndex = widget.memoryService.masterIndex;
-    final taskContext = widget.memoryService.activeTaskContext;
+    return AnimatedBuilder(
+      animation: AppModeService(),
+      builder: (context, _) {
+        final bootState = widget.memoryService.bootState;
+        final env = widget.memoryService.environmentalState;
+        final directives = widget.memoryService.coreDirectives;
+        final masterIndex = widget.memoryService.masterIndex;
+        final taskContext = widget.memoryService.activeTaskContext;
 
-    return Container(
-      color: SepiaTheme.canvas,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 1. TOP HEADER & TELEMETRY STRIP
-            _buildTopHeader(),
-            const SizedBox(height: 14),
-            _buildHardwareTelemetryBar(bootState, env),
-            if (_statusBannerMessage != null) ...[
-              const SizedBox(height: 12),
-              _buildLiveStatusBanner(),
-            ],
-            const SizedBox(height: 18),
+        return Container(
+          color: SepiaTheme.canvas,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1. TOP HEADER & TELEMETRY STRIP
+                _buildTopHeader(),
+                const SizedBox(height: 14),
+                _buildHardwareTelemetryBar(bootState, env),
+                if (_statusBannerMessage != null) ...[
+                  const SizedBox(height: 12),
+                  _buildLiveStatusBanner(),
+                ],
+                const SizedBox(height: 18),
 
-            // 2. THE 4 ARCHITECTURE PATTERNS
-            _buildPattern1Card(bootState, directives, masterIndex),
-            const SizedBox(height: 16),
-            _buildPattern2Card(masterIndex, taskContext),
-            const SizedBox(height: 16),
-            _buildPattern3Card(),
-            const SizedBox(height: 16),
-            _buildPattern4Card(masterIndex),
-            const SizedBox(height: 20),
+                // 2. THE 4 ARCHITECTURE PATTERNS
+                _buildPattern1Card(bootState, directives, masterIndex),
+                const SizedBox(height: 16),
+                _buildPattern2Card(masterIndex, taskContext),
+                const SizedBox(height: 16),
+                _buildPattern3Card(),
+                const SizedBox(height: 16),
+                _buildPattern4Card(masterIndex),
+                const SizedBox(height: 20),
 
-            // 3. EASY-TO-DIGEST EDUCATIONAL EFFICACY RATER
-            EducationAssessmentCard(memoryService: widget.memoryService),
-            const SizedBox(height: 24),
+                // 3. EASY-TO-DIGEST EDUCATIONAL EFFICACY RATER (Everything Mode Only)
+                if (!AppModeService().isSimple) ...[
+                  EducationAssessmentCard(memoryService: widget.memoryService),
+                  const SizedBox(height: 24),
+                ],
 
-            // 4. PRIMARY CALL TO ACTION
-            _buildBottomActionCta(),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
+                // 4. PRIMARY CALL TO ACTION
+                _buildBottomActionCta(),
+                const SizedBox(height: 32),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1203,6 +1215,7 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
           const SizedBox(height: 14),
 
           // Simulation buttons for state shifts
+          // Simulation buttons for state shifts
           Text(
             'Simulate Player Sector State Shifts:',
             style: SepiaTheme.sans(
@@ -1216,59 +1229,29 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              ElevatedButton.icon(
-                key: const Key('btn_prefetch_foundry'),
-                onPressed: _isPerformingAction
-                    ? null
-                    : () => _handleStatePrefetch(
-                          'foundry',
-                          'Approaching Ironforge Foundry',
-                          ['volcanic_slag_thresholds', 'iron_vanguard_ciphers'],
-                        ),
-                icon: const Icon(Icons.fireplace, size: 14),
-                label: const Text('APPROACH FOUNDRY', style: TextStyle(fontSize: 11)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: SepiaTheme.paperSubtle,
-                  foregroundColor: SepiaTheme.ink,
-                  elevation: 0,
-                  side: const BorderSide(color: SepiaTheme.border),
-                ),
+              _buildScenePrefetchButton(
+                keyStr: 'btn_prefetch_foundry',
+                sceneId: 'foundry',
+                label: 'APPROACH FOUNDRY',
+                icon: Icons.fireplace,
+                trigger: 'Approaching Ironforge Foundry',
+                topics: const ['volcanic_slag_thresholds', 'iron_vanguard_ciphers'],
               ),
-              ElevatedButton.icon(
-                key: const Key('btn_prefetch_docks'),
-                onPressed: _isPerformingAction
-                    ? null
-                    : () => _handleStatePrefetch(
-                          'docks',
-                          'Descending into Oakhaven Docks',
-                          ['undercity_sluice_bypass', 'smuggler_cipher_routes'],
-                        ),
-                icon: const Icon(Icons.sailing, size: 14),
-                label: const Text('DESCEND TO DOCKS', style: TextStyle(fontSize: 11)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: SepiaTheme.paperSubtle,
-                  foregroundColor: SepiaTheme.ink,
-                  elevation: 0,
-                  side: const BorderSide(color: SepiaTheme.border),
-                ),
+              _buildScenePrefetchButton(
+                keyStr: 'btn_prefetch_docks',
+                sceneId: 'docks',
+                label: 'DESCEND TO DOCKS',
+                icon: Icons.sailing,
+                trigger: 'Descending into Oakhaven Docks',
+                topics: const ['undercity_sluice_bypass', 'smuggler_cipher_routes'],
               ),
-              ElevatedButton.icon(
-                key: const Key('btn_prefetch_spire'),
-                onPressed: _isPerformingAction
-                    ? null
-                    : () => _handleStatePrefetch(
-                          'spire',
-                          'Ascending Archivist Spire',
-                          ['keystone_spire_harmonics', 'ancient_grove_roots'],
-                        ),
-                icon: const Icon(Icons.account_balance, size: 14),
-                label: const Text('ASCEND SPIRE', style: TextStyle(fontSize: 11)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: SepiaTheme.paperSubtle,
-                  foregroundColor: SepiaTheme.ink,
-                  elevation: 0,
-                  side: const BorderSide(color: SepiaTheme.border),
-                ),
+              _buildScenePrefetchButton(
+                keyStr: 'btn_prefetch_spire',
+                sceneId: 'spire',
+                label: 'ASCEND SPIRE',
+                icon: Icons.account_balance,
+                trigger: 'Ascending Archivist Spire',
+                topics: const ['keystone_spire_harmonics', 'ancient_grove_roots'],
               ),
             ],
           ),
@@ -1288,17 +1271,20 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
                     children: [
                       const Icon(Icons.bolt, size: 14, color: SepiaTheme.sage),
                       const SizedBox(width: 4),
-                      Text(
-                        'PREFETCH EVENT LOG: ${prefetchList.first.stateTrigger}',
-                        style: SepiaTheme.mono(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: SepiaTheme.sage,
+                      Expanded(
+                        child: Text(
+                          'PREFETCH EVENT LOG: ${prefetchList.first.stateTrigger}',
+                          style: SepiaTheme.mono(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: SepiaTheme.sage,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 8),
                       Text(
-                        'PREFETCH COMPLETE (${prefetchList.first.latencyMs}ms)',
+                        '${prefetchList.first.status} (${prefetchList.first.latencyMs}ms)',
                         style: SepiaTheme.mono(
                           fontSize: 10,
                           color: SepiaTheme.inkMuted,
@@ -1306,17 +1292,136 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Topics cached: ${prefetchList.first.targetTopicIds.join(", ")} '
-                    '(${prefetchList.first.bytesCached} B). Zero-latency 0ms local query readiness confirmed.',
-                    style: SepiaTheme.mono(fontSize: 11, color: SepiaTheme.ink),
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.add_circle_outline, size: 12, color: SepiaTheme.sage),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Cached into local RAM: ${prefetchList.first.targetTopicIds.join(", ")} '
+                          '(${prefetchList.first.bytesCached} B). Zero-latency 0ms local query readiness confirmed.',
+                          style: SepiaTheme.mono(fontSize: 11, color: SepiaTheme.ink),
+                        ),
+                      ),
+                    ],
                   ),
+                  if (prefetchList.first.evictedTopicIds.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.remove_circle_outline, size: 12, color: SepiaTheme.amber),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Evicted previous scene: ${prefetchList.first.evictedTopicIds.join(", ")} '
+                            '(${prefetchList.first.bytesEvicted} B returned to Cloud Dream). Local edge memory bounded.',
+                            style: SepiaTheme.mono(fontSize: 11, color: SepiaTheme.amber),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
           ],
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: SepiaTheme.paperSubtle,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: SepiaTheme.borderSubtle),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.memory, size: 14, color: SepiaTheme.inkSecondary),
+                const SizedBox(width: 6),
+                Text(
+                  'Active Scene Cache: ',
+                  style: SepiaTheme.sans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: SepiaTheme.inkSecondary,
+                  ),
+                ),
+                Expanded(
+                  child: widget.memoryService.activeSceneTopicIds.isEmpty
+                      ? Text(
+                          'No sector context loaded. Baseline directives only.',
+                          style: SepiaTheme.mono(fontSize: 10, color: SepiaTheme.inkMuted),
+                        )
+                      : Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: widget.memoryService.activeSceneTopicIds.map((tid) {
+                            final topic = widget.memoryService.localTopicCache[tid];
+                            final sizeStr = topic != null ? '${topic.byteSize} B' : '';
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: SepiaTheme.sageBg,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: SepiaTheme.sageBorder),
+                              ),
+                              child: Text(
+                                '$tid ($sizeStr • 0ms)',
+                                style: SepiaTheme.mono(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: SepiaTheme.sage,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                ),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildScenePrefetchButton({
+    required String keyStr,
+    required String sceneId,
+    required String label,
+    required IconData icon,
+    required String trigger,
+    required List<String> topics,
+  }) {
+    final isActive = widget.memoryService.activePrefetchedSceneId == sceneId;
+
+    return ElevatedButton.icon(
+      key: Key(keyStr),
+      onPressed: _isPerformingAction
+          ? null
+          : () => _handleStatePrefetch(sceneId, trigger, topics),
+      icon: Icon(
+        isActive ? Icons.check_circle : icon,
+        size: 14,
+        color: isActive ? SepiaTheme.terracotta : SepiaTheme.ink,
+      ),
+      label: Text(
+        isActive ? '$label (ACTIVE)' : label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isActive ? SepiaTheme.terracottaBg : SepiaTheme.paperSubtle,
+        foregroundColor: isActive ? SepiaTheme.terracotta : SepiaTheme.ink,
+        elevation: 0,
+        side: BorderSide(
+          color: isActive ? SepiaTheme.terracotta : SepiaTheme.border,
+          width: isActive ? 1.5 : 1.0,
+        ),
       ),
     );
   }

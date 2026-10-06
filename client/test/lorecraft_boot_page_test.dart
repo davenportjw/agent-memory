@@ -145,13 +145,56 @@ void main() {
       expect(find.textContaining('PREFETCH COMPLETE'), findsWidgets);
     });
 
+    testWidgets('Pattern 3: Switching between scenes dynamically evicts previous scene and displays eviction in UI', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LoreCraftBootPageView(
+              loreService: loreService,
+              memoryService: memoryService,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 1. Approach Foundry
+      final prefetchFoundryFinder = find.byKey(const Key('btn_prefetch_foundry'));
+      await tester.ensureVisible(prefetchFoundryFinder);
+      await tester.tap(prefetchFoundryFinder);
+      await tester.pumpAndSettle();
+
+      expect(memoryService.activePrefetchedSceneId, 'foundry');
+      expect(memoryService.localTopicCache.containsKey('volcanic_slag_thresholds'), isTrue);
+      expect(find.textContaining('APPROACH FOUNDRY (ACTIVE)'), findsOneWidget);
+
+      // 2. Descend to Docks: must evict Foundry topics from local memory
+      final prefetchDocksFinder = find.byKey(const Key('btn_prefetch_docks'));
+      await tester.ensureVisible(prefetchDocksFinder);
+      await tester.tap(prefetchDocksFinder);
+      await tester.pumpAndSettle();
+
+      expect(memoryService.activePrefetchedSceneId, 'docks');
+      expect(memoryService.localTopicCache.containsKey('undercity_sluice_bypass'), isTrue);
+      expect(memoryService.localTopicCache.containsKey('volcanic_slag_thresholds'), isFalse);
+      expect(find.textContaining('DESCEND TO DOCKS (ACTIVE)'), findsOneWidget);
+      expect(find.textContaining('Evicted previous scene:'), findsWidgets);
+    });
+
     testWidgets('Pattern 4: Cloud Dream 3 AM delta sync updates Master Index and invalidates cache', (tester) async {
       tester.view.physicalSize = const Size(1400, 1000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
       // Pre-cache iron_vanguard_ciphers to verify invalidation
-      await memoryService.fetchMemoryTopic('iron_vanguard_ciphers');
+      await memoryService.triggerStatePrefetch(
+        stateTrigger: 'Pre-cache for dream sync invalidation',
+        topicIds: ['iron_vanguard_ciphers'],
+      );
       expect(memoryService.localTopicCache.containsKey('iron_vanguard_ciphers'), isTrue);
 
       await tester.pumpWidget(

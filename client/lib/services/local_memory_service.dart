@@ -39,6 +39,8 @@ class LocalMemoryService {
   TaskBoundContext? _activeTaskContext;
   final List<PrefetchEvent> _prefetchHistory = [];
   final List<DreamDeltaUpdate> _dreamSyncHistory = [];
+  String? _activePrefetchedSceneId;
+  final List<String> _activeSceneTopicIds = [];
 
   bool _isConsolidating = false;
   bool _isOfflinePartition = false;
@@ -70,6 +72,45 @@ class LocalMemoryService {
   TaskBoundContext? get activeTaskContext => _activeTaskContext;
   List<PrefetchEvent> get prefetchHistory => List.unmodifiable(_prefetchHistory);
   List<DreamDeltaUpdate> get dreamSyncHistory => List.unmodifiable(_dreamSyncHistory);
+  String? get activePrefetchedSceneId => _activePrefetchedSceneId;
+  List<String> get activeSceneTopicIds => List.unmodifiable(_activeSceneTopicIds);
+
+  /// Returns working context turns filtered by session source:
+  /// - null or empty or 'ALL': all turns
+  /// - 'LORECRAFT': turns belonging to the LoreCraft game ('lorecraft-session-01' or containing 'lorecraft')
+  /// - 'ASSISTANT': turns belonging to assistant/system prompts (not containing 'lorecraft')
+  List<EpisodicTurn> getWorkingContextForSource(String? sourceFilter) {
+    if (sourceFilter == null || sourceFilter.isEmpty || sourceFilter == 'ALL') {
+      return List.unmodifiable(_workingContext);
+    }
+    if (sourceFilter == 'LORECRAFT') {
+      return _workingContext.where((t) => t.sessionId.toLowerCase().contains('lorecraft')).toList();
+    }
+    if (sourceFilter == 'ASSISTANT') {
+      return _workingContext.where((t) => !t.sessionId.toLowerCase().contains('lorecraft')).toList();
+    }
+    return List.unmodifiable(_workingContext);
+  }
+
+  /// Returns ingestion queue turns filtered by session source
+  List<EpisodicTurn> getIngestionQueueForSource(String? sourceFilter) {
+    if (sourceFilter == null || sourceFilter.isEmpty || sourceFilter == 'ALL') {
+      return List.unmodifiable(_ingestionQueue);
+    }
+    if (sourceFilter == 'LORECRAFT') {
+      return _ingestionQueue.where((t) => t.sessionId.toLowerCase().contains('lorecraft')).toList();
+    }
+    if (sourceFilter == 'ASSISTANT') {
+      return _ingestionQueue.where((t) => !t.sessionId.toLowerCase().contains('lorecraft')).toList();
+    }
+    return List.unmodifiable(_ingestionQueue);
+  }
+
+  int get loreCraftWorkingTurnsCount =>
+      _workingContext.where((t) => t.sessionId.toLowerCase().contains('lorecraft')).length;
+
+  int get assistantWorkingTurnsCount =>
+      _workingContext.where((t) => !t.sessionId.toLowerCase().contains('lorecraft')).length;
 
   /// Appends a new episodic turn to local working context
   void commitTurn(EpisodicTurn turn) {
@@ -393,6 +434,8 @@ class LocalMemoryService {
     _localTopicCache.clear();
     _prefetchHistory.clear();
     _dreamSyncHistory.clear();
+    _activePrefetchedSceneId = null;
+    _activeSceneTopicIds.clear();
     _activeTaskContext = null;
     _initializeDefaultMemoryState();
     _simulationLogs.insert(0, '[Reset] Memory state, boot index, and edge bundle reset to default baseline.');
@@ -540,6 +583,323 @@ class LocalMemoryService {
     );
   }
 
+  /// Builds a hierarchical structural diff tree comparing Local Edge state to Cloud Firestore state.
+  MemoryTreeNode getEdgeCloudDiffTree() {
+    final edgeAnchors = _activeEdgeBundle?.anchors ?? [];
+
+    // Group durable nodes by category
+    final Map<String, List<DurableKnowledgeNode>> cloudByCategory = {};
+    for (final node in _durableNodes) {
+      cloudByCategory.putIfAbsent(node.category, () => []).add(node);
+    }
+
+    int syncedCount = 0;
+    int modifiedCount = 0;
+    int cloudOnlyCount = 0;
+    int edgeOnlyCount = _ingestionQueue.length;
+
+    // 1. Pending Ingestion Branch (Edge Only turns)
+    final List<MemoryTreeNode> pendingChildren = _ingestionQueue.map((turn) {
+      return MemoryTreeNode(
+        id: 'diff-turn-${turn.id}',
+        label: turn.userPrompt,
+        subtitle: 'Stored in SQLite WASM/RAM · Pending cloud consolidation batch (${turn.route})',
+        nodeType: MemoryNodeType.diffAdded,
+        status: 'Edge Only (Pending)',
+        metric: '${turn.latencyMs}ms (${turn.modelName})',
+        children: turn.entitiesExtracted.map((e) => MemoryTreeNode(
+          id: 'diff-entity-${turn.id}-${e.entityType}',
+          label: '${e.entityType}: ${e.entityValue}',
+          subtitle: 'Confidence: ${(e.confidence * 100).toInt()}% · Pending Firestore index',
+          nodeType: MemoryNodeType.attribute,
+          status: 'Pending Index',
+          metric: '${(e.confidence * 100).toInt()}%',
+        )).toList(),
+        metadata: {'turn': turn},
+      );
+    }).toList();
+
+    final pendingBranch = MemoryTreeNode(
+      id: 'diff-branch-pending',
+      label: 'Local Ingestion Queue (${_ingestionQueue.length} turns awaiting cloud)',
+      subtitle: 'Volatile local episodes pending asynchronous batch consolidation to Firestore',
+      nodeType: MemoryNodeType.category,
+      metric: '${_ingestionQueue.length} pending',
+      children: pendingChildren.isNotEmpty
+          ? pendingChildren
+          : [
+              MemoryTreeNode(
+                id: 'diff-pending-clean',
+                label: 'All local turns consolidated',
+                subtitle: 'Zero pending episodes in local ingestion queue',
+                nodeType: MemoryNodeType.diffSynced,
+                status: 'Clean',
+                metric: '0 pending',
+              ),
+            ],
+    );
+
+    // 2. Durable Knowledge vs. Edge Anchors Comparison (Grouped by Category)
+    final Set<String> matchedAnchorIds = {};
+    final List<MemoryTreeNode> categoryBranches = [];
+
+    final allCategories = Set<String>.from(cloudByCategory.keys)
+      ..addAll(edgeAnchors.map((a) => a.category));
+
+    for (final cat in allCategories) {
+      final durableInCat = cloudByCategory[cat] ?? [];
+      final anchorsInCat = edgeAnchors.where((a) => a.category == cat).toList();
+
+      final List<MemoryTreeNode> entityDiffNodes = [];
+
+      for (final durableNode in durableInCat) {
+        // Match anchor by name or ID
+        final matchingAnchor = edgeAnchors.where((a) =>
+            a.key.toLowerCase() == durableNode.entityName.toLowerCase() ||
+            a.anchorId == 'anchor-${durableNode.id}').firstOrNull;
+
+        if (matchingAnchor != null) {
+          matchedAnchorIds.add(matchingAnchor.anchorId);
+          final hasContradiction = durableNode.contradictionRecords.isNotEmpty ||
+              durableNode.resolvedContradictions.isNotEmpty;
+
+          if (hasContradiction) {
+            modifiedCount++;
+            entityDiffNodes.add(MemoryTreeNode(
+              id: 'diff-durable-${durableNode.id}',
+              label: '${durableNode.entityName} (Conflict Resolved)',
+              subtitle: 'Cloud active: "${durableNode.summary}" | Edge anchor: "${matchingAnchor.distilledContext}"',
+              nodeType: MemoryNodeType.diffModified,
+              status: 'MODIFIED / CONFLICT',
+              metric: 'RAM Synced',
+              metadata: {
+                'node': durableNode,
+                if (durableNode.contradictionRecords.isNotEmpty)
+                  'contradiction': durableNode.contradictionRecords.last,
+              },
+              children: [
+                MemoryTreeNode(
+                  id: 'diff-sub-anchor-${matchingAnchor.anchorId}',
+                  label: '📱 Local Edge Anchor: ${matchingAnchor.key}',
+                  subtitle: 'Distilled Context: "${matchingAnchor.distilledContext}"',
+                  nodeType: MemoryNodeType.anchor,
+                  status: 'Local RAM',
+                  metric: 'Loaded',
+                ),
+                MemoryTreeNode(
+                  id: 'diff-sub-cloud-${durableNode.id}',
+                  label: '☁️ Cloud Durable Node: ${durableNode.entityName}',
+                  subtitle: 'Summary: "${durableNode.summary}" (${(durableNode.confidence * 100).toInt()}% confidence)',
+                  nodeType: MemoryNodeType.entityNode,
+                  status: 'Firestore',
+                  metric: '${durableNode.relations.length} relations',
+                  children: durableNode.relations.map((r) => MemoryTreeNode(
+                    id: 'diff-rel-${durableNode.id}-${r.targetNodeId}',
+                    label: '${r.predicate} ➔ ${r.targetNodeId}',
+                    subtitle: 'Directed relational edge in Firestore knowledge graph',
+                    nodeType: MemoryNodeType.relation,
+                  )).toList(),
+                ),
+                ...durableNode.contradictionRecords.map((cr) => MemoryTreeNode(
+                  id: 'diff-cr-${cr.id}',
+                  label: 'Contradiction Audit: ${cr.priorDirective}',
+                  subtitle: 'Active: ${cr.activeDirective} · Rationale: ${cr.rationale}',
+                  nodeType: MemoryNodeType.contradiction,
+                  status: 'RESOLVED',
+                  metadata: {'contradiction': cr, 'node': durableNode},
+                )),
+              ],
+            ));
+          } else {
+            syncedCount++;
+            entityDiffNodes.add(MemoryTreeNode(
+              id: 'diff-durable-${durableNode.id}',
+              label: durableNode.entityName,
+              subtitle: 'Synchronized in RAM anchor: "${matchingAnchor.distilledContext}"',
+              nodeType: MemoryNodeType.diffSynced,
+              status: 'Synced',
+              metric: 'In RAM',
+              metadata: {'node': durableNode},
+              children: [
+                MemoryTreeNode(
+                  id: 'diff-sub-anchor-${matchingAnchor.anchorId}',
+                  label: '📱 Local Edge Anchor: ${matchingAnchor.key}',
+                  subtitle: 'Context: "${matchingAnchor.distilledContext}"',
+                  nodeType: MemoryNodeType.anchor,
+                  status: 'Local RAM',
+                  metric: '0ms Grounding',
+                ),
+                MemoryTreeNode(
+                  id: 'diff-sub-cloud-${durableNode.id}',
+                  label: '☁️ Cloud Durable Node: ${durableNode.entityName}',
+                  subtitle: 'Summary: "${durableNode.summary}" · Source Episodes: ${durableNode.sourceEpisodeIds.length}',
+                  nodeType: MemoryNodeType.entityNode,
+                  status: 'Firestore',
+                  metric: '${(durableNode.confidence * 100).toInt()}% conf',
+                  children: durableNode.relations.map((r) => MemoryTreeNode(
+                    id: 'diff-rel-${durableNode.id}-${r.targetNodeId}',
+                    label: '${r.predicate} ➔ ${r.targetNodeId}',
+                    subtitle: 'Directed relational edge in knowledge graph',
+                    nodeType: MemoryNodeType.relation,
+                  )).toList(),
+                ),
+              ],
+            ));
+          }
+        } else {
+          // Cloud only (evicted from edge bundle to maintain <50KB budget)
+          cloudOnlyCount++;
+          entityDiffNodes.add(MemoryTreeNode(
+            id: 'diff-durable-${durableNode.id}',
+            label: '${durableNode.entityName} (Cloud Only)',
+            subtitle: 'Durable in Firestore; evicted from local edge RAM cache to preserve 50 KB budget',
+            nodeType: MemoryNodeType.diffRemoved,
+            status: 'Cloud Only (Dormant)',
+            metric: 'Evicted from RAM',
+            metadata: {'node': durableNode},
+            children: [
+              MemoryTreeNode(
+                id: 'diff-sub-cloud-${durableNode.id}',
+                label: '☁️ Cloud Durable: ${durableNode.entityName}',
+                subtitle: 'Summary: "${durableNode.summary}" · Stored in /durable_nodes',
+                nodeType: MemoryNodeType.entityNode,
+                status: 'Firestore Native',
+                metric: '${(durableNode.confidence * 100).toInt()}% conf',
+              ),
+            ],
+          ));
+        }
+      }
+
+      // Check for unmatched edge anchors in this category
+      for (final anchor in anchorsInCat) {
+        if (!matchedAnchorIds.contains(anchor.anchorId)) {
+          edgeOnlyCount++;
+          entityDiffNodes.add(MemoryTreeNode(
+            id: 'diff-anchor-${anchor.anchorId}',
+            label: '${anchor.key} (Edge Anchor Only)',
+            subtitle: 'Loaded in local RAM bundle; no corresponding durable node in Firestore',
+            nodeType: MemoryNodeType.diffAdded,
+            status: 'Edge Only',
+            metric: 'RAM Loaded',
+            metadata: {'anchor': anchor},
+          ));
+        }
+      }
+
+      if (entityDiffNodes.isNotEmpty) {
+        categoryBranches.add(MemoryTreeNode(
+          id: 'diff-cat-$cat',
+          label: '$cat (${entityDiffNodes.length} nodes)',
+          subtitle: 'Category parity across local cache and cloud graph',
+          nodeType: MemoryNodeType.category,
+          children: entityDiffNodes,
+        ));
+      }
+    }
+
+    final durableBranch = MemoryTreeNode(
+      id: 'diff-branch-durable',
+      label: 'Durable Knowledge vs. Edge Anchors ($syncedCount synced, $modifiedCount conflicts, $cloudOnlyCount dormant)',
+      subtitle: 'Comparison between ${_durableNodes.length} cloud durable nodes and ${edgeAnchors.length} active edge anchors',
+      nodeType: MemoryNodeType.category,
+      children: categoryBranches,
+    );
+
+    // 3. Topic Cache Delta (Four-Stage Architecture)
+    final localCachedTopics = _masterIndex.entries.where((e) => e.isCachedLocally).toList();
+    final cloudDreamTopics = _masterIndex.entries.where((e) => !e.isCachedLocally).toList();
+
+    final topicChildren = _masterIndex.entries.map((entry) {
+      if (entry.isCachedLocally) {
+        return MemoryTreeNode(
+          id: 'diff-topic-${entry.topicId}',
+          label: '📄 ${entry.title}',
+          subtitle: 'Cached locally in SQLite WASM (0ms access, zero egress)',
+          nodeType: MemoryNodeType.diffSynced,
+          status: 'LOCAL CACHE',
+          metric: '${entry.tokenEstimate} tokens',
+        );
+      } else {
+        return MemoryTreeNode(
+          id: 'diff-topic-${entry.topicId}',
+          label: '☁️ ${entry.title}',
+          subtitle: 'Remote cloud dream storage; requires on-demand prefetch via HTTP',
+          nodeType: MemoryNodeType.diffRemoved,
+          status: 'CLOUD DREAM ONLY',
+          metric: '${entry.tokenEstimate} tokens',
+        );
+      }
+    }).toList();
+
+    final topicBranch = MemoryTreeNode(
+      id: 'diff-branch-topics',
+      label: 'Topic Cache Delta (${localCachedTopics.length} local / ${cloudDreamTopics.length} cloud dream)',
+      subtitle: 'Master index entries partitioning local SQLite cache from remote dream storage',
+      nodeType: MemoryNodeType.category,
+      children: topicChildren,
+    );
+
+    // 4. Synchronization Health & Network Delta
+    final healthBranch = MemoryTreeNode(
+      id: 'diff-branch-health',
+      label: 'Synchronization Health & Partition State',
+      subtitle: 'Real-time transport and budget status',
+      nodeType: MemoryNodeType.category,
+      children: [
+        MemoryTreeNode(
+          id: 'diff-net-state',
+          label: _isOfflinePartition ? 'Local Edge Partition Active (Airgapped)' : 'Cloud Run Synchronization Online',
+          subtitle: _isOfflinePartition
+              ? 'All mutations restricted to local device. 0 egress allowed.'
+              : 'Connected to Cloud Run backend at $baseUrl',
+          nodeType: _isOfflinePartition ? MemoryNodeType.diffModified : MemoryNodeType.diffSynced,
+          status: _isOfflinePartition ? 'OFFLINE' : 'ONLINE',
+          metric: _isOfflinePartition ? 'Airgapped' : 'Active',
+        ),
+        MemoryTreeNode(
+          id: 'diff-budget-state',
+          label: 'Edge Bundle Memory Footprint',
+          subtitle: '${_activeEdgeBundle?.sizeKb.toStringAsFixed(1) ?? "0.0"} KB / 50.0 KB (${(_activeEdgeBundle?.isWithinBudget ?? true) ? "Preserving zero-egress budget" : "Exceeding mobile RAM limit"})',
+          nodeType: (_activeEdgeBundle?.isWithinBudget ?? true) ? MemoryNodeType.diffSynced : MemoryNodeType.diffModified,
+          status: (_activeEdgeBundle?.isWithinBudget ?? true) ? 'Clean' : 'OVER BUDGET',
+          metric: '${_activeEdgeBundle?.sizeKb.toStringAsFixed(1) ?? "0.0"} KB',
+        ),
+      ],
+    );
+
+    final totalDurable = _durableNodes.length;
+    final totalAnchors = edgeAnchors.length;
+    final bundleSizeKb = _activeEdgeBundle?.sizeKb.toStringAsFixed(1) ?? '0.0';
+    final isWithinBudget = _activeEdgeBundle?.isWithinBudget ?? true;
+
+    return MemoryTreeNode(
+      id: 'diff-root',
+      label: 'Edge-to-Cloud Memory Difference Tree',
+      subtitle: 'Hierarchical structural delta: Local SQLite/RAM vs. Cloud Firestore Graph',
+      nodeType: MemoryNodeType.storeRoot,
+      metric: '$syncedCount synced · ${_ingestionQueue.length} pending · $cloudOnlyCount cloud-only · $modifiedCount conflicts',
+      metadata: {
+        'pendingCount': _ingestionQueue.length,
+        'syncedCount': syncedCount,
+        'cloudOnlyCount': cloudOnlyCount,
+        'modifiedCount': modifiedCount,
+        'edgeOnlyCount': edgeOnlyCount,
+        'totalDurable': totalDurable,
+        'totalAnchors': totalAnchors,
+        'bundleSizeKb': bundleSizeKb,
+        'isWithinBudget': isWithinBudget,
+        'isOffline': _isOfflinePartition,
+      },
+      children: [
+        pendingBranch,
+        durableBranch,
+        topicBranch,
+        healthBranch,
+      ],
+    );
+  }
+
   void _initializeDefaultMemoryState() {
     // Seed initial durable knowledge graph nodes
     _durableNodes.addAll([
@@ -602,6 +962,32 @@ class LocalMemoryService {
         resolvedContradictions: ['Replaced AICore requirement on emulator'],
         lastUpdated: DateTime.now().subtract(const Duration(hours: 72)),
       ),
+      DurableKnowledgeNode(
+        id: 'node-lore-01',
+        entityName: 'Aether-Core Resonance',
+        category: 'WORLD_CANON',
+        summary: 'Subterranean Foundry Aether-Core operates at critical frequency (432 Hz). Excess flux requires venting into aqueducts or keystone grounding.',
+        confidence: 0.99,
+        relations: [
+          const NodeRelation(predicate: 'REGULATES', targetNodeId: 'node-lore-02')
+        ],
+        sourceEpisodeIds: ['ep-lore-001'],
+        resolvedContradictions: [],
+        lastUpdated: DateTime.now().subtract(const Duration(hours: 6)),
+      ),
+      DurableKnowledgeNode(
+        id: 'node-lore-02',
+        entityName: 'Undercity Sluice Gate Treaty',
+        category: 'TACTICAL_SECURITY',
+        summary: 'Shadow Syndicate maintains encrypted valve ciphers preventing dwarf slag dumping into residential drinking ducts.',
+        confidence: 0.96,
+        relations: [
+          const NodeRelation(predicate: 'IMPACTS', targetNodeId: 'node-lore-01')
+        ],
+        sourceEpisodeIds: ['ep-lore-001'],
+        resolvedContradictions: [],
+        lastUpdated: DateTime.now().subtract(const Duration(hours: 18)),
+      ),
     ]);
 
     // Initial compact edge bundle computed with real byte length
@@ -630,6 +1016,18 @@ class LocalMemoryService {
         category: 'ROADMAP_DECISION',
         distilledContext: 'Android Emulator uses LiteRT CPU pipeline.',
       ),
+      const MemoryAnchor(
+        anchorId: 'anchor-lore-01',
+        key: 'Aether-Core Resonance',
+        category: 'WORLD_CANON',
+        distilledContext: 'Subterranean Aether-Core operates at 432 Hz; requires harmonic venting.',
+      ),
+      const MemoryAnchor(
+        anchorId: 'anchor-lore-02',
+        key: 'Sluice Gate Ciphers',
+        category: 'TACTICAL_SECURITY',
+        distilledContext: 'Shadow Syndicate holds encrypted bypass keys for Khar-Drak flood valves.',
+      ),
     ];
     final initMap = {
       'bundle_version': 1,
@@ -646,8 +1044,26 @@ class LocalMemoryService {
       anchors: initialAnchors,
     );
 
-    // Initial working context
+    // Initial working context with both LoreCraft game turns and assistant turns
     _workingContext.addAll([
+      EpisodicTurn(
+        id: 'ep-lore-001',
+        sessionId: 'lorecraft-session-01',
+        timestamp: DateTime.now().subtract(const Duration(minutes: 2)),
+        userPrompt: 'Consult Gideon regarding Subterranean Aether-Core pressure threshold',
+        modelResponse: 'Envoy, the blast bulkheads groan under 432 Hz resonance. If we do not vent into the aqueducts, the mountain splits.',
+        route: 'EDGE_LOCAL',
+        modelName: 'Gemma 4 int4',
+        latencyMs: 82,
+        ttftMs: 38,
+        isPiiSanitized: true,
+        entitiesExtracted: [
+          const ExtractedEntity(entityType: 'NPC', entityValue: 'Gideon Ironhand', confidence: 1.0),
+          const ExtractedEntity(entityType: 'REGION', entityValue: 'Subterranean Foundry', confidence: 1.0),
+          const ExtractedEntity(entityType: 'FACTION', entityValue: 'Iron Vanguard', confidence: 0.98),
+        ],
+        status: 'UNCONSOLIDATED',
+      ),
       EpisodicTurn(
         id: 'ep-001',
         sessionId: 'session-live',
@@ -908,15 +1324,45 @@ class LocalMemoryService {
   // Pattern 3: Pre-Emptive Caching (The Predictive Load)
   // ==========================================
 
-  /// Pre-emptively fetches context files into local memory before user prompts when a state shift occurs.
+  /// Pre-emptively fetches context files into local memory before user prompts when a state/scene shift occurs.
+  /// When transitioning between scenes, previously prefetched scene topics are evicted from local cache
+  /// to enforce bounded edge memory limits and eliminate stale context leakage.
   Future<PrefetchEvent> triggerStatePrefetch({
     required String stateTrigger,
     required List<String> topicIds,
+    String? sceneId,
+    bool evictPreviousSceneTopics = true,
   }) async {
     final stopwatch = Stopwatch()..start();
     int newlyCachedBytes = 0;
     int prefetchedCount = 0;
+    int evictedBytes = 0;
+    final List<String> evictedTopicIds = [];
 
+    // 1. Evict previous scene topics if shifting between scenes
+    if (evictPreviousSceneTopics && _activeSceneTopicIds.isNotEmpty) {
+      for (final prevTid in _activeSceneTopicIds) {
+        // Evict if not needed in the new scene
+        if (!topicIds.contains(prevTid)) {
+          if (_localTopicCache.containsKey(prevTid)) {
+            final evictedTopic = _localTopicCache.remove(prevTid);
+            if (evictedTopic != null) {
+              evictedBytes += evictedTopic.byteSize;
+            }
+            evictedTopicIds.add(prevTid);
+          }
+        }
+      }
+
+      if (evictedTopicIds.isNotEmpty) {
+        _simulationLogs.insert(
+          0,
+          '[Predictive Eviction] Scene shift: evicted ${evictedTopicIds.length} previous scene topic(s) ($evictedBytes B: ${evictedTopicIds.join(", ")}) from local cache to maintain bounded edge footprint.',
+        );
+      }
+    }
+
+    // 2. Prefetch new scene topics
     for (final tid in topicIds) {
       if (!_localTopicCache.containsKey(tid)) {
         final t = _groundTruthTopics[tid];
@@ -928,34 +1374,80 @@ class LocalMemoryService {
       }
     }
 
-    // Update master index cache flags
+    // 3. Update master index cache flags:
+    // Mark target topicIds as true; mark evictedTopicIds as false
     final updatedEntries = _masterIndex.entries.map((e) {
       if (topicIds.contains(e.topicId)) {
         return e.copyWith(isCachedLocally: true);
+      } else if (evictedTopicIds.contains(e.topicId)) {
+        return e.copyWith(isCachedLocally: false);
       }
       return e;
     }).toList();
 
     _masterIndex = _masterIndex.copyWith(entries: updatedEntries);
-    _bootState = _bootState.copyWith(masterIndex: _masterIndex);
+
+    // 4. Update environmental state sector if sceneId or stateTrigger maps to a known sector
+    String? newSector;
+    if (sceneId != null) {
+      if (sceneId == 'foundry') {
+        newSector = 'subterranean_foundry';
+      } else if (sceneId == 'docks') {
+        newSector = 'sunken_docks';
+      } else if (sceneId == 'spire') {
+        newSector = 'keystone_spire';
+      }
+    } else {
+      final lower = stateTrigger.toLowerCase();
+      if (lower.contains('foundry')) {
+        newSector = 'subterranean_foundry';
+      } else if (lower.contains('dock')) {
+        newSector = 'sunken_docks';
+      } else if (lower.contains('spire')) {
+        newSector = 'keystone_spire';
+      }
+    }
+
+    if (newSector != null) {
+      _environmentalState = _environmentalState.copyWith(currentSector: newSector);
+    }
+
+    _activePrefetchedSceneId = sceneId;
+    _activeSceneTopicIds.clear();
+    _activeSceneTopicIds.addAll(topicIds);
+
+    _bootState = _bootState.copyWith(
+      masterIndex: _masterIndex,
+      environmentalState: _environmentalState,
+    );
 
     stopwatch.stop();
+
+    final status = prefetchedCount > 0
+        ? 'PREFETCHED'
+        : (evictedTopicIds.isNotEmpty ? 'TRANSITIONED' : 'ALREADY_CACHED');
 
     final event = PrefetchEvent(
       id: 'prefetch-${DateTime.now().millisecondsSinceEpoch}',
       stateTrigger: stateTrigger,
+      sceneId: sceneId,
       targetTopicIds: topicIds,
+      evictedTopicIds: evictedTopicIds,
       timestamp: DateTime.now(),
-      status: prefetchedCount > 0 ? 'PREFETCHED' : 'ALREADY_CACHED',
+      status: status,
       latencyMs: stopwatch.elapsedMilliseconds,
       bytesCached: newlyCachedBytes,
+      bytesEvicted: evictedBytes,
     );
 
     _prefetchHistory.insert(0, event);
 
+    final evictMsg = evictedTopicIds.isNotEmpty
+        ? ' Evicted ${evictedTopicIds.length} former topic(s) ($evictedBytes B: ${evictedTopicIds.join(", ")}).'
+        : '';
     _simulationLogs.insert(
       0,
-      '[Predictive Prefetch] State Shift: "$stateTrigger". Prefetched $prefetchedCount new topic(s) ($newlyCachedBytes bytes) into local memory. Latency: ${event.latencyMs}ms. Subsequent user queries will hit local cache in 0ms.',
+      '[Predictive Prefetch] State Shift: "$stateTrigger". Prefetched $prefetchedCount new topic(s) ($newlyCachedBytes B) into local memory.$evictMsg Latency: ${event.latencyMs}ms. Zero-latency 0ms local query readiness confirmed.',
     );
     notifyListeners();
     return event;

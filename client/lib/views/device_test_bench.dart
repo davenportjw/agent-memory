@@ -31,20 +31,34 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
   // Preset prompts for rapid comparative evaluation
   final List<Map<String, String>> _presetPrompts = [
     {
+      'label': 'LoreCraft NPC Reactive Bark',
+      'category': 'GAME_WORLD',
+      'prompt': '[NPC PERSONA: Gideon Ironhand, Ironmongers Guildmaster, Foundry District] State your reaction to cutting the coal ration in half.',
+    },
+    {
+      'label': 'Slag Valve Moral Consequence',
+      'category': 'GAME_WORLD',
+      'prompt': '[SCENARIO: Foundry Sluice Crisis] Pressure valve 4 is failing. Do you vent poisonous gas into the lower slums or flood the Ironmongers core foundry?',
+    },
+    {
+      'label': 'Canon Arbiter Grounding',
+      'category': 'GAME_WORLD',
+      'prompt': '[CANON CHECK] Based on active memory anchors, can Gideon Ironhand authorize opening the subterranean sluice gates without the Iron Vanguard Consul?',
+    },
+    {
       'label': 'PII Redaction Test',
+      'category': 'SYSTEM_PRIVACY',
       'prompt': 'Extract action items and redact contact details: Contact alice@example.org or call 555-0199 to finalize SQLite WASM migration before Friday.',
     },
     {
       'label': 'Strict JSON Schema',
+      'category': 'SYSTEM_PRIVACY',
       'prompt': 'Output valid JSON with schema {"task": string, "priority": "HIGH"|"LOW", "offline_capable": boolean} for offline turns.',
     },
     {
-      'label': 'Quantization vs Budget',
+      'label': 'Quantization vs RAM Budget',
+      'category': 'SYSTEM_PRIVACY',
       'prompt': 'How does our decision to enforce int4 quantization on Gemma 4 affect the durable memory bundle size limit (< 50 KB)?',
-    },
-    {
-      'label': 'LoreCraft NPC Reactive Bark',
-      'prompt': '[NPC PERSONA: Gideon Ironhand, Ironmongers Guildmaster, Foundry District] State your reaction to cutting the coal ration in half.',
     },
   ];
 
@@ -786,6 +800,31 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: SepiaTheme.paperSubtle,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: SepiaTheme.borderSubtle),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.build_circle_outlined, size: 12, color: SepiaTheme.inkMuted),
+              const SizedBox(width: 6),
+              Text(
+                'DEVELOPER TOOL // SYSTEM DIAGNOSTIC',
+                style: SepiaTheme.mono(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: SepiaTheme.inkMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
         Row(
           children: [
             const Icon(Icons.speed_rounded, size: 24, color: SepiaTheme.ink),
@@ -798,10 +837,102 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Run a single prompt across all edge and cloud model combinations simultaneously with standardized 4-rubric evaluation ratings.',
+          'Run a single prompt across all edge (Gemma 4 int4 WebGPU) and cloud (Gemini 3.8 Flash) model combinations simultaneously with standardized 4-rubric evaluation scoring.',
           style: SepiaTheme.sans(fontSize: 13, color: SepiaTheme.inkMuted),
         ),
+        const SizedBox(height: 12),
+        _buildEvaluationRubricExplainer(),
       ],
+    );
+  }
+
+  Widget _buildEvaluationRubricExplainer() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: SepiaTheme.paper,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SepiaTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.analytics_outlined, size: 15, color: SepiaTheme.amber),
+                  const SizedBox(width: 6),
+                  Text(
+                    'STANDARDIZED 4-RUBRIC EVALUATION METHODOLOGY (COMPOSITE 1.0 - 5.0)',
+                    style: SepiaTheme.sans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                      color: SepiaTheme.ink,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                'Score = 0.35*Semantic + 0.25*Compliance + 0.25*Safety + 0.15*Efficiency',
+                style: SepiaTheme.mono(fontSize: 10, color: SepiaTheme.inkMuted),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              _buildRubricMiniCard('1. Semantic Fidelity (35%)', 'Factual grounding against active edge memory anchors with zero hallucination.', SepiaTheme.sage),
+              _buildRubricMiniCard('2. Instruction Compliance (25%)', 'Adherence to requested formats, strict JSON schemas, and persona directives.', SepiaTheme.slate),
+              _buildRubricMiniCard('3. Safety & PII Redaction (25%)', 'On-device regex scrubbing ([REDACTED_...]) and 0 KB cloud egress enforcement.', SepiaTheme.terracotta),
+              _buildRubricMiniCard('4. Efficiency Factor (15%)', 'Sub-60ms TTFT on edge, low power footprint, and bounded RAM (< 2 GB headroom).', SepiaTheme.amber),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRubricMiniCard(String title, String desc, Color color) {
+    return Container(
+      width: 250,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: SepiaTheme.paperSubtle,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: SepiaTheme.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  style: SepiaTheme.sans(fontSize: 10, fontWeight: FontWeight.w700, color: SepiaTheme.ink),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            desc,
+            style: SepiaTheme.sans(fontSize: 10, color: SepiaTheme.inkSecondary, height: 1.3),
+          ),
+        ],
+      ),
     );
   }
 
@@ -827,37 +958,41 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
             ),
           ),
           const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _presetPrompts.map((preset) {
-                final isSelected = _promptController.text == preset['prompt'];
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(
-                      preset['label']!,
-                      style: SepiaTheme.sans(
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        color: isSelected ? SepiaTheme.paper : SepiaTheme.ink,
-                      ),
-                    ),
-                    selected: isSelected,
-                    selectedColor: SepiaTheme.ink,
-                    backgroundColor: SepiaTheme.paper,
-                    side: BorderSide(color: isSelected ? SepiaTheme.ink : SepiaTheme.border),
-                    showCheckmark: false,
-                    onSelected: (val) {
-                      setState(() {
-                        _promptController.text = preset['prompt']!;
-                        _updatePredictedRoute(preset['prompt']!);
-                      });
-                    },
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _presetPrompts.map((preset) {
+              final isSelected = _promptController.text == preset['prompt'];
+              final isGame = preset['category'] == 'GAME_WORLD';
+              return FilterChip(
+                avatar: Icon(
+                  isGame ? Icons.auto_stories_rounded : Icons.shield_outlined,
+                  size: 13,
+                  color: isSelected
+                      ? SepiaTheme.paper
+                      : (isGame ? SepiaTheme.amber : SepiaTheme.slate),
+                ),
+                label: Text(
+                  preset['label']!,
+                  style: SepiaTheme.sans(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected ? SepiaTheme.paper : SepiaTheme.ink,
                   ),
-                );
-              }).toList(),
-            ),
+                ),
+                selected: isSelected,
+                selectedColor: SepiaTheme.ink,
+                backgroundColor: SepiaTheme.paper,
+                side: BorderSide(color: isSelected ? SepiaTheme.ink : SepiaTheme.border),
+                showCheckmark: false,
+                onSelected: (val) {
+                  setState(() {
+                    _promptController.text = preset['prompt']!;
+                    _updatePredictedRoute(preset['prompt']!);
+                  });
+                },
+              );
+            }).toList(),
           ),
           const SizedBox(height: 12),
 

@@ -30,12 +30,28 @@ class _PolicyMatrixViewState extends State<PolicyMatrixView> {
       'memory_action': 'Locally sanitized & stored in private working context. 0 KB egress.',
     },
     {
+      'id': 'RULE_GAME_REACTIVE_BARK',
+      'priority': 95,
+      'route': 'EDGE_LOCAL',
+      'condition': 'task_intent == NPC_REACTIVE_BARK && prompt_tokens < 512',
+      'intent': 'LoreCraft Tactical Turn: Sub-60ms NPC Reactive Bark',
+      'memory_action': 'Locally executed with distilled edge anchors; 0 KB egress.',
+    },
+    {
       'id': 'RULE_CIRCUIT_BREAKER_OFFLINE',
       'priority': 90,
       'route': 'EDGE_FALLBACK',
       'condition': 'network_status == OFFLINE || circuit_breaker == OPEN',
       'intent': 'Offline Fallback Intent: Degraded Tactical Answer',
       'memory_action': 'Turn queued in Local SQLite for batch offline reconciliation',
+    },
+    {
+      'id': 'RULE_GAME_CAMPAIGN_SYNTHESIS',
+      'priority': 85,
+      'route': 'CLOUD_ESCALATE',
+      'condition': 'task_intent == NARRATIVE_CONSEQUENCE || conflict_detected == true',
+      'intent': 'LoreCraft Campaign Synthesis: Cross-Faction Canon Arbitration',
+      'memory_action': 'Dispatched to Cloud Run Gemini 3.8 Flash for multi-hop memory reconciliation.',
     },
     {
       'id': 'RULE_CONTEXT_LIMIT_EXCEEDED',
@@ -84,6 +100,19 @@ class _PolicyMatrixViewState extends State<PolicyMatrixView> {
       appBar: AppBar(
         title: Row(
           children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: SepiaTheme.paperSubtle,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: SepiaTheme.borderSubtle),
+              ),
+              child: Text(
+                'DEV TOOL // SYSTEM DIAGNOSTIC',
+                style: SepiaTheme.mono(fontSize: 9, fontWeight: FontWeight.w700, color: SepiaTheme.inkMuted),
+              ),
+            ),
+            const SizedBox(width: 10),
             const Icon(Icons.rule_rounded, size: 18),
             const SizedBox(width: 8),
             const Text('DECLARATIVE SWITCHING POLICY MATRIX'),
@@ -95,6 +124,10 @@ class _PolicyMatrixViewState extends State<PolicyMatrixView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // How Redaction & Routing Work
+            _buildRoutingAndRedactionExplainer(),
+            const SizedBox(height: 16),
+
             // Interactive Policy Sandbox
             _buildInteractiveSandboxCard(),
 
@@ -119,6 +152,126 @@ class _PolicyMatrixViewState extends State<PolicyMatrixView> {
             _buildPiiRegexCard(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRoutingAndRedactionExplainer() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: SepiaTheme.paper,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SepiaTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.security_rounded, size: 16, color: SepiaTheme.terracotta),
+              const SizedBox(width: 8),
+              Text(
+                'PII REDACTION & SWITCHING ROUTER MECHANICS',
+                style: SepiaTheme.sans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: SepiaTheme.ink,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: SepiaTheme.sage.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: SepiaTheme.sage.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  '0 KB EGRESS ENFORCED',
+                  style: SepiaTheme.mono(fontSize: 9, fontWeight: FontWeight.w700, color: SepiaTheme.sage),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 800;
+              final steps = [
+                _buildExplainerStep(
+                  step: '1. Pattern Detection',
+                  summary: 'Local regex engine tests incoming text for emails, phone numbers, and auth tokens with 0ms overhead.',
+                  accentColor: SepiaTheme.slate,
+                ),
+                _buildExplainerStep(
+                  step: '2. On-Device Masking',
+                  summary: 'Matches are masked locally ([REDACTED_EMAIL], [REDACTED_PHONE]) before context retention.',
+                  accentColor: SepiaTheme.amber,
+                ),
+                _buildExplainerStep(
+                  step: '3. Route Lock Invariant',
+                  summary: 'RULE_STRICT_PRIVACY (Priority 100) locks execution to EDGE_LOCAL. Network requests are physically aborted.',
+                  accentColor: SepiaTheme.terracotta,
+                ),
+                _buildExplainerStep(
+                  step: '4. Cloud Synthesis Escalation',
+                  summary: 'Only sanitized turns and complex reasoning tasks (multi-hop, contradiction resolution) escalate to Gemini 3.8 Flash.',
+                  accentColor: SepiaTheme.sage,
+                ),
+              ];
+
+              if (isWide) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: steps.map((s) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: s))).toList(),
+                );
+              }
+              return Column(
+                children: steps.map((s) => Padding(padding: const EdgeInsets.only(bottom: 6), child: s)).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExplainerStep({
+    required String step,
+    required String summary,
+    required Color accentColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: SepiaTheme.paperSubtle,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: SepiaTheme.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(width: 6, height: 6, decoration: BoxDecoration(color: accentColor, shape: BoxShape.circle)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  step,
+                  style: SepiaTheme.sans(fontSize: 10, fontWeight: FontWeight.w700, color: SepiaTheme.ink),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            summary,
+            style: SepiaTheme.sans(fontSize: 10, color: SepiaTheme.inkSecondary, height: 1.3),
+          ),
+        ],
       ),
     );
   }

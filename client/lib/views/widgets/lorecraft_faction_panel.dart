@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/lorecraft_state.dart';
+import '../../services/app_mode_service.dart';
 import '../../theme/sepia_theme.dart';
 
 class LoreCraftFactionPanel extends StatelessWidget {
@@ -14,45 +15,50 @@ class LoreCraftFactionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: SepiaTheme.paper,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: SepiaTheme.border, width: 1.0),
-      ),
-      padding: const EdgeInsets.all(12.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return AnimatedBuilder(
+      animation: AppModeService(),
+      builder: (context, _) {
+        return Container(
+          decoration: BoxDecoration(
+            color: SepiaTheme.paper,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: SepiaTheme.border, width: 1.0),
+          ),
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  'FACTION STANDINGS',
-                  style: SepiaTheme.sans(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: SepiaTheme.inkMuted,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'FACTION STANDINGS',
+                      style: SepiaTheme.sans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: SepiaTheme.inkMuted,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  InkWell(
+                    onTap: () => _showTreatyModal(context),
+                    borderRadius: BorderRadius.circular(4),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4.0),
+                      child: Icon(Icons.info_outline, size: 16, color: SepiaTheme.inkMuted),
+                    ),
+                  ),
+                ],
               ),
-              InkWell(
-                onTap: () => _showTreatyModal(context),
-                borderRadius: BorderRadius.circular(4),
-                child: const Padding(
-                  padding: EdgeInsets.all(4.0),
-                  child: Icon(Icons.info_outline, size: 16, color: SepiaTheme.inkMuted),
-                ),
-              ),
+              const SizedBox(height: 8),
+              ...factions.map((f) => _buildFactionItem(context, f)),
             ],
           ),
-          const SizedBox(height: 8),
-          ...factions.map((f) => _buildFactionItem(context, f)),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -111,9 +117,10 @@ class LoreCraftFactionPanel extends StatelessWidget {
                   ),
                 ),
               ),
-              if (onAdjustReputation != null) ...[
+              if (onAdjustReputation != null && !AppModeService().isSimple) ...[
                 const SizedBox(width: 8),
                 InkWell(
+                  key: Key('btn_faction_sub_${f.id}'),
                   onTap: () => onAdjustReputation!(f.id, -10),
                   borderRadius: BorderRadius.circular(3),
                   child: Container(
@@ -127,6 +134,7 @@ class LoreCraftFactionPanel extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 InkWell(
+                  key: Key('btn_faction_add_${f.id}'),
                   onTap: () => onAdjustReputation!(f.id, 10),
                   borderRadius: BorderRadius.circular(3),
                   child: Container(

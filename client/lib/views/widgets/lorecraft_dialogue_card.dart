@@ -4,6 +4,7 @@ import '../../models/routing_decision.dart';
 import '../../models/a2ui_models.dart';
 import '../../theme/sepia_theme.dart';
 import '../../utils/a2ui_extractor.dart';
+import '../../services/app_mode_service.dart';
 import 'a2ui_surface_view.dart';
 
 class LoreCraftDialogueCard extends StatelessWidget {
@@ -261,6 +262,7 @@ class LoreCraftDialogueCard extends StatelessWidget {
                 ? '⚡ LOCAL EDGE • 0.0 KB Egress • ${turn.ttftMs > 0 ? '${turn.ttftMs}ms' : '< 60ms'}'
                 : '☁️ CLOUD ESCALATED • Gemini 3.8 Flash • ${turn.latencyMs}ms'));
 
+    final isSimple = AppModeService().isSimple;
     return InkWell(
       onTap: onInspectTelemetry ??
           () {
@@ -279,7 +281,7 @@ class LoreCraftDialogueCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Dialogue Frame Telemetry',
+                      isSimple ? '⚡ Edge vs Cloud Telemetry' : 'Dialogue Frame Telemetry',
                       style: SepiaTheme.sans(fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                   ],
@@ -288,31 +290,42 @@ class LoreCraftDialogueCard extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _metricRow('Execution Route', turn.route.name),
-                      if (turn.personaModelName != null)
-                        _metricRow('Persona Model (Talking)', turn.personaModelName!),
-                      if (turn.arbiterModelName != null)
-                        _metricRow('Game Master Arbiter', turn.arbiterModelName!),
-                      if (turn.gameMasterCommentary != null)
-                        _metricRow('Arbiter Commentary', turn.gameMasterCommentary!),
-                      if (turn.ruleId != null)
-                        _metricRow('Firebase AI Policy', turn.ruleId!),
-                      if (turn.routeJustification != null)
-                        _metricRow('Escalation Reason', turn.routeJustification!),
-                      if (turn.memoryDelta != null)
-                        _metricRow('Memory Delta', turn.memoryDelta!),
-                      _metricRow('Model Engine', turn.modelName),
-                      _metricRow('Time to First Token (TTFT)', '${turn.ttftMs} ms'),
-                      _metricRow('Total Latency', '${turn.latencyMs} ms'),
-                      _metricRow('Cloud Egress', '${turn.egressBytes} bytes'),
-                      _metricRow(
-                        'Frame Budget Status',
-                        isVisual
-                            ? 'Cloud Visual Task (~1.2s)'
-                            : (turn.fpsCompliant ? 'Compliant (< 100ms)' : 'Exceeded (> 100ms)'),
-                      ),
-                    ],
+                    children: isSimple
+                        ? [
+                            _metricRow('AI Execution Route', isEdge ? '⚡ Local Edge (On-Device)' : '☁️ Cloud Escalated (Remote)'),
+                            _metricRow('Model Engine', turn.modelName),
+                            _metricRow('Speed (TTFT / Latency)', '${turn.ttftMs > 0 ? '${turn.ttftMs}ms' : '< 60ms'} TTFT / ${turn.latencyMs}ms Total'),
+                            _metricRow('Cloud Network Egress', isEdge ? '0.0 KB (Zero egress, 100% private)' : '${turn.egressBytes} bytes'),
+                            if (turn.memoryDelta != null)
+                              _metricRow('Memory Integration', turn.memoryDelta!),
+                            if (turn.routeJustification != null)
+                              _metricRow('Strategic Routing Reason', turn.routeJustification!),
+                          ]
+                        : [
+                            _metricRow('Execution Route', turn.route.name),
+                            if (turn.personaModelName != null)
+                              _metricRow('Persona Model (Talking)', turn.personaModelName!),
+                            if (turn.arbiterModelName != null)
+                              _metricRow('Game Master Arbiter', turn.arbiterModelName!),
+                            if (turn.gameMasterCommentary != null)
+                              _metricRow('Arbiter Commentary', turn.gameMasterCommentary!),
+                            if (turn.ruleId != null)
+                              _metricRow('Firebase AI Policy', turn.ruleId!),
+                            if (turn.routeJustification != null)
+                              _metricRow('Escalation Reason', turn.routeJustification!),
+                            if (turn.memoryDelta != null)
+                              _metricRow('Memory Delta', turn.memoryDelta!),
+                            _metricRow('Model Engine', turn.modelName),
+                            _metricRow('Time to First Token (TTFT)', '${turn.ttftMs} ms'),
+                            _metricRow('Total Latency', '${turn.latencyMs} ms'),
+                            _metricRow('Cloud Egress', '${turn.egressBytes} bytes'),
+                            _metricRow(
+                              'Frame Budget Status',
+                              isVisual
+                                  ? 'Cloud Visual Task (~1.2s)'
+                                  : (turn.fpsCompliant ? 'Compliant (< 100ms)' : 'Exceeded (> 100ms)'),
+                            ),
+                          ],
                   ),
                 ),
                 actions: [

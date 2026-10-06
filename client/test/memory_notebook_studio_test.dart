@@ -102,8 +102,68 @@ void runMemoryNotebookStudioTests(
 
     service.resetSimulation();
     expect(!service.isOfflinePartition, 'Reset must restore online state');
-    expect(service.activeEdgeBundle?.totalAnchors == 4, 'Reset must restore 4 default anchors');
+    expect(service.activeEdgeBundle?.totalAnchors == 6, 'Reset must restore 6 default anchors');
     expect(service.simulationLogs.length == 1, 'Reset must leave single reset notice log');
     expect(service.simulationLogs.first.contains('[Reset]'), 'Log must confirm reset');
   });
+
+  register('Hierarchical Edge-Cloud diff tree builds all 4 delta branches correctly', () {
+    final service = LocalMemoryService();
+    final diffTree = service.getEdgeCloudDiffTree();
+
+    expect(diffTree.id == 'diff-root', 'Root id must be diff-root');
+    expect(diffTree.children.length == 4, 'Diff tree must contain 4 branches (pending, durable, topics, health)');
+    expect(diffTree.children[0].id == 'diff-branch-pending', 'First branch must be pending ingestion');
+    expect(diffTree.children[1].id == 'diff-branch-durable', 'Second branch must be durable vs anchor comparison');
+    expect(diffTree.children[2].id == 'diff-branch-topics', 'Third branch must be topic cache delta');
+    expect(diffTree.children[3].id == 'diff-branch-health', 'Fourth branch must be synchronization health');
+
+    // Check metadata
+    expect(diffTree.metadata.containsKey('pendingCount'), 'Metadata must include pendingCount');
+    expect(diffTree.metadata.containsKey('syncedCount'), 'Metadata must include syncedCount');
+    expect(diffTree.metadata.containsKey('modifiedCount'), 'Metadata must include modifiedCount');
+    expect(diffTree.metadata.containsKey('bundleSizeKb'), 'Metadata must include bundleSizeKb');
+  });
+
+  register('Edge-Cloud diff tree dynamically reflects pending turns and contradictions', () {
+    final service = LocalMemoryService();
+    final diffTree = service.getEdgeCloudDiffTree();
+
+    // Check durable comparison category branch
+    final durableBranch = diffTree.children[1];
+    expect(durableBranch.children.isNotEmpty, 'Durable branch must have category sub-branches');
+
+    // In default state, Quantization Policy has a resolved contradiction
+    final archBranch = durableBranch.children.firstWhere(
+      (c) => c.label.contains('SYSTEM_ARCHITECTURE'),
+      orElse: () => throw Exception('SYSTEM_ARCHITECTURE category missing in diff tree'),
+    );
+    final quantDiffNode = archBranch.children.firstWhere(
+      (n) => n.label.contains('Quantization Policy'),
+      orElse: () => throw Exception('Quantization Policy missing in diff tree'),
+    );
+
+    expect(quantDiffNode.nodeType == MemoryNodeType.diffModified, 'Quantization Policy with contradiction must be diffModified');
+    expect(quantDiffNode.metadata.containsKey('contradiction'), 'Modified node must attach contradiction metadata');
+    expect(quantDiffNode.children.length >= 2, 'Must contain local anchor, cloud node, and contradiction audit');
+
+    // Check synched node without contradiction
+    final secBranch = durableBranch.children.firstWhere(
+      (c) => c.label.contains('SECURITY_POLICY'),
+      orElse: () => throw Exception('SECURITY_POLICY category missing in diff tree'),
+    );
+    final piiNode = secBranch.children.firstWhere(
+      (n) => n.label.contains('Zero Cloud Egress for PII'),
+      orElse: () => throw Exception('Zero Cloud Egress for PII missing in diff tree'),
+    );
+    expect(piiNode.nodeType == MemoryNodeType.diffSynced, 'Zero Cloud Egress for PII must be diffSynced');
+
+    // Check pending ingestion branch
+    final pendingBranch = diffTree.children[0];
+    expect(pendingBranch.children.isNotEmpty, 'Pending branch must show turns in ingestion queue');
+    final firstPending = pendingBranch.children.first;
+    expect(firstPending.nodeType == MemoryNodeType.diffAdded, 'Pending turn must be diffAdded');
+    expect(firstPending.children.isNotEmpty, 'Pending turn must display extracted entity attributes');
+  });
 }
+

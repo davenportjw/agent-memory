@@ -110,6 +110,19 @@ class _FeatureSynthesizerViewState extends State<FeatureSynthesizerView> {
 }''',
       'componentType': 'PII_SHIELD',
     },
+    {
+      'title': 'LoreCraft Faction Resonance Matrix',
+      'anchorKey': 'Aether-Core Resonance',
+      'category': 'WORLD_CANON',
+      'description': 'Real-time rule synthesizer evaluating faction affinity shifts and living lore canon based on active edge anchors.',
+      'code': '''class FactionEvaluator {
+  int evaluateShift(String factionId, String decision) {
+    // Evaluates faction affinity against active distilled durable canon (< 50 KB bundle)
+    return decision.contains('sluice') ? -15 : +10;
+  }
+}''',
+      'componentType': 'LORE_EVALUATOR',
+    },
   ];
 
   void _triggerSynthesize() {
@@ -118,13 +131,12 @@ class _FeatureSynthesizerViewState extends State<FeatureSynthesizerView> {
     final key = active['anchorKey'] as String;
     
     // Look up real durable knowledge node in memory service
-    final matchingNode = widget.memoryService.durableNodes.cast<dynamic>().firstWhere(
-      (n) => n.key == key,
-      orElse: () => null,
-    );
+    final matchingNode = widget.memoryService.durableNodes.where(
+      (n) => n.entityName.toLowerCase() == key.toLowerCase(),
+    ).firstOrNull;
 
     final nodeSummary = matchingNode != null 
-        ? 'Anchor: "${matchingNode.key}" (Confidence: ${(matchingNode.confidenceScore * 100).toStringAsFixed(0)}%, Reinforcements: ${matchingNode.reinforcementCount})'
+        ? 'Anchor: "${matchingNode.entityName}" (Confidence: ${(matchingNode.confidence * 100).toStringAsFixed(0)}%, Relations: ${matchingNode.relations.length})'
         : 'Anchor: "$key" (Active Edge Anchor)';
 
     setState(() {
@@ -148,6 +160,19 @@ class _FeatureSynthesizerViewState extends State<FeatureSynthesizerView> {
       appBar: AppBar(
         title: Row(
           children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: SepiaTheme.paperSubtle,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: SepiaTheme.borderSubtle),
+              ),
+              child: Text(
+                'DEV TOOL // SYSTEM DIAGNOSTIC',
+                style: SepiaTheme.mono(fontSize: 9, fontWeight: FontWeight.w700, color: SepiaTheme.inkMuted),
+              ),
+            ),
+            const SizedBox(width: 10),
             const Icon(Icons.extension_outlined, size: 18),
             const SizedBox(width: 8),
             const Text('FEATURE SYNTHESIZER // MEMORY-DRIVEN SANDBOX'),
@@ -179,6 +204,10 @@ class _FeatureSynthesizerViewState extends State<FeatureSynthesizerView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // How Synthesis Works Explainer Card
+            _buildSynthesisExplainer(),
+            const SizedBox(height: 16),
+
             // Top Feature Selector Tabs
             Row(
               children: List.generate(_features.length, (idx) {
@@ -475,7 +504,7 @@ class _FeatureSynthesizerViewState extends State<FeatureSynthesizerView> {
           ],
         ),
       );
-    } else {
+    } else if (componentType == 'PII_SHIELD') {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -537,6 +566,130 @@ class _FeatureSynthesizerViewState extends State<FeatureSynthesizerView> {
           ],
         ),
       );
+    } else if (componentType == 'LORE_EVALUATOR') {
+      final activeAnchors = widget.memoryService.activeEdgeBundle?.anchors.length ?? 0;
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: SepiaTheme.paperSubtle,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: SepiaTheme.borderSubtle),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.auto_stories_rounded, size: 16, color: SepiaTheme.amber),
+                const SizedBox(width: 8),
+                Text('LoreCraft Faction Resonance Matrix', style: SepiaTheme.sans(fontSize: 12, fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Evaluated against $activeAnchors active canon anchors in edge memory bundle. Verifies local lore state without network egress.',
+              style: SepiaTheme.sans(fontSize: 11, color: SepiaTheme.inkSecondary),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: SepiaTheme.paper,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: SepiaTheme.borderSubtle),
+              ),
+              child: Column(
+                children: [
+                  _buildResonanceRow('Ironmongers Guild', '+12 (Support)', SepiaTheme.sage),
+                  const Divider(height: 12),
+                  _buildResonanceRow('Iron Vanguard', '-8 (Suspicious)', SepiaTheme.terracotta),
+                  const Divider(height: 12),
+                  _buildResonanceRow('Aether Shapers', '+4 (Neutral)', SepiaTheme.slate),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
     }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: SepiaTheme.paperSubtle,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SepiaTheme.borderSubtle),
+      ),
+      child: Text('Dynamic Feature: $componentType', style: SepiaTheme.mono(fontSize: 11, color: SepiaTheme.inkMuted)),
+    );
+  }
+
+  Widget _buildResonanceRow(String faction, String score, Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(faction, style: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.w600, color: SepiaTheme.ink)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            score,
+            style: SepiaTheme.mono(fontSize: 10, fontWeight: FontWeight.w700, color: color),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSynthesisExplainer() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: SepiaTheme.paper,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SepiaTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.bolt_rounded, size: 16, color: SepiaTheme.violet),
+              const SizedBox(width: 8),
+              Text(
+                'DYNAMIC FEATURE SYNTHESIS FROM DURABLE MEMORY',
+                style: SepiaTheme.sans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: SepiaTheme.ink,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: SepiaTheme.violet.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: SepiaTheme.violet.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  'EDGE JIT ADAPTATION',
+                  style: SepiaTheme.mono(fontSize: 9, fontWeight: FontWeight.w700, color: SepiaTheme.violet),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'How Synthesis Works: The on-device engine retrieves distilled durable memory anchors (< 50 KB edge bundle) and dynamically compiles them into live, reactive client widgets and enforcement rules. When memory updates or policies change, components hydrate instantaneously without requiring a full application re-deploy.',
+            style: SepiaTheme.sans(fontSize: 11, color: SepiaTheme.inkSecondary, height: 1.4),
+          ),
+        ],
+      ),
+    );
   }
 }

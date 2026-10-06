@@ -147,9 +147,10 @@ The vast majority of semantic memory is paged in on demand:
 - **Tool-Triggered Fetching**: When user prompts require historical lore or domain rules, the edge agent checks its Master Index and executes `fetch_memory_topic(topic_id)` to pull the specific payload.
 - **Task-Bound Context Windows**: Injected topics expand the context window only during the active workflow. Upon task completion, injected topics are immediately evicted, returning edge memory footprint to base directives.
 
-### 3. Pre-Emptive Caching (The Predictive Load)
+### 3. Pre-Emptive Caching (The Predictive Load & Scene Eviction)
 For latency-sensitive edge interactions where on-demand network roundtrips would stall the user:
 - **State-Based Prefetching**: When the agent detects an environmental or state transition (e.g. player enters Sunken Aqueducts or GPS indicates arrival), background workers pre-emptively load relevant topic files into local memory before queries arrive.
+- **Dynamic Scene Eviction**: When shifting scenes (e.g., Foundry ↔ Docks ↔ Spire), former scene context files are evicted from the active local working cache and restored to Cloud Dream storage. This prevents unbounded memory accumulation in local RAM, updating the Master Index (`isCachedLocally: false`) and emitting eviction telemetry (`evictedTopicIds`, `bytesEvicted`).
 
 ### 4. Asynchronous Syncs (The "Morning After")
 Edge memory continuously evolves via overnight cloud consolidation:

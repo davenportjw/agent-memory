@@ -12,12 +12,14 @@ class GemmaLoadPill extends StatefulWidget {
   final LocalExecutionManager edgeManager;
   final VoidCallback? onModelLoaded;
   final VoidCallback? onModelUnloaded;
+  final bool isCompact;
 
   const GemmaLoadPill({
     super.key,
     required this.edgeManager,
     this.onModelLoaded,
     this.onModelUnloaded,
+    this.isCompact = false,
   });
 
   @override
@@ -410,20 +412,20 @@ class _GemmaLoadPillState extends State<GemmaLoadPill> {
       bg = SepiaTheme.sageBg;
       border = SepiaTheme.sageBorder;
       textColor = SepiaTheme.sage;
-      label = 'Gemma 4 2B Ready (0 KB Egress)';
+      label = widget.isCompact ? 'Gemma 4 Ready' : 'Gemma 4 2B Ready (0 KB Egress)';
       icon = Icons.check_circle_outline;
     } else if (isDownloading) {
       bg = SepiaTheme.amberBg;
       border = SepiaTheme.amberBorder;
       textColor = SepiaTheme.amber;
       final pct = mgr.gemmaDownloadProgress.toStringAsFixed(0);
-      label = 'Downloading Gemma 4 2B ($pct%)';
+      label = widget.isCompact ? 'Gemma 4 ($pct%)' : 'Downloading Gemma 4 2B ($pct%)';
       icon = Icons.downloading;
     } else {
       bg = SepiaTheme.paperSubtle;
       border = SepiaTheme.border;
       textColor = SepiaTheme.inkSecondary;
-      label = 'Load Gemma 4 2B (~1.46 GB)';
+      label = widget.isCompact ? 'Load Gemma 4' : 'Load Gemma 4 2B (~1.46 GB)';
       icon = Icons.bolt_outlined;
     }
 
@@ -447,8 +449,11 @@ class _GemmaLoadPillState extends State<GemmaLoadPill> {
               },
         borderRadius: BorderRadius.circular(6),
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          margin: EdgeInsets.symmetric(horizontal: widget.isCompact ? 2 : 4),
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.isCompact ? 7 : 10,
+            vertical: widget.isCompact ? 4 : 5,
+          ),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(6),
@@ -458,11 +463,11 @@ class _GemmaLoadPillState extends State<GemmaLoadPill> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 13, color: textColor),
-              const SizedBox(width: 6),
+              SizedBox(width: widget.isCompact ? 4 : 6),
               Text(
                 label,
                 style: SepiaTheme.mono(
-                  fontSize: 11,
+                  fontSize: widget.isCompact ? 10 : 11,
                   fontWeight: FontWeight.w600,
                   color: textColor,
                 ),

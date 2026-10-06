@@ -59,14 +59,34 @@ Surrounding every piece of static metadata in a capsule container creates visual
   - Studio Sub-Panels (e.g., LoreCraft Studio left navigation panel, collapsible via dedicated chevron and center header toggle button, with individual collapsible accordion sections for Region, NPCs, Factions, Router, and Edge Budget).
   - Center Main Workspace (Stream, Notebook, or Studio).
   - Right Expandable Drawer (Contextual docs, inspectable telemetry, audit logs).
-- Memory Studio: Horizontal Request/Response flow diagram, continuous notebook stream, side-by-side Dual-Tree view (Local Edge Tree on left, Cloud Knowledge Graph on right) with docked simulator.
+- Memory Studio: Horizontal Request/Response flow diagram, continuous notebook stream, interactive Tree View supporting Segmented Switcher (`[ 📱 Local Edge Tree ]`, `[ ☁️ Cloud Graph Tree ]`, `[ ⚡ Edge-Cloud Diff ]`, and `[ 🔀 Split View ]`) with docked simulator.
 
 ### Mobile / On-Device Mode ($< 700$px)
 - Nav transforms into a drawer or bottom navigation bar.
 - Request/Response diagram transforms into a **Vertical Stepper Indicator**.
-- Dual-Tree transforms into a **Segmented Control** (`[ 📱 Local Tree ]`, `[ ☁️ Cloud Graph ]`, `[ ⚡ Diff ]`) with thumb-friendly collapsible tree nodes.
-- Contradiction audits open in an accessible **Modal Bottom Sheet**.
+- Memory Tree transforms into a **Segmented Control** (`[ 📱 Local Edge Tree ]`, `[ ☁️ Cloud Graph Tree ]`, `[ ⚡ Edge-Cloud Diff ]`) with thumb-friendly collapsible tree nodes.
+- Edge-Cloud Diff tree displays a live 4-branch hierarchical delta (Pending Ingestion Queue, Durable Knowledge vs. Edge Anchors, Topic Cache Delta, and Synchronization Health) with zero mock summaries.
+- Contradiction audits open in an accessible **Modal Bottom Sheet** directly from tree diff node affordances.
 - The Pattern Testing Sandbox pins cleanly as a **Docked Bottom Action Bar**.
+
+### Assistant Workspace Header & Action Pill Responsiveness
+The center workspace header toolbar dynamically adapts to the center column's available width using `LayoutBuilder` (accounting for the 240px Left Nav Rail and 320px Right Inspector Drawer):
+- **Wide Workspace ($\ge 900$px)**:
+  - Full title text: `ASSISTANT SHELL // DUAL EDGE-CLOUD WORKSPACE` with `DEV TOOL` badge.
+  - Interactive Latency Probe Chip: `Edge Probe: {latency}ms`.
+  - Execution Routing Pill: Full label (e.g. `Auto (Gemini Nano)` or `Local: Gemini Nano`).
+  - Gemma 4 Load Pill: Full plain-English capacity label (`Load Gemma 4 2B (~1.46 GB)` / `Gemma 4 2B Ready (0 KB Egress)`).
+- **Compact Workspace ($600\text{px} \le \text{width} < 900\text{px}$, e.g. Drawer Open)**:
+  - Adaptive title text: `ASSISTANT SHELL`.
+  - Interactive Latency Probe Chip: Concise latency `12ms`.
+  - Execution Routing Pill: Streamlined mode label (e.g. `Auto`, `Local`, `Cloud`, `Offline`).
+  - Gemma 4 Load Pill: Concise action label (`Load Gemma 4` / `Gemma 4 Ready`).
+- **Ultra-Compact Workspace ($< 600$px)**:
+  - Minimalist title text: `ASSISTANT`.
+  - Latency probe chip gracefully defers to the Inspector panel to prioritize routing and load action controls.
+- **Layout Contention & Overlap Prevention**:
+  - The left title block is bounded to at most 45% of available width with `TextOverflow.ellipsis`.
+  - Action pills reside in an `Expanded` right-aligned container with a non-reversed horizontal scroll viewer fallback, ensuring pills are never squished, overlapped, or clipped from the left.
 
 ---
 
@@ -128,7 +148,83 @@ Generative AI responses intended to present interactive affordances (choices, ac
 
 ---
 
-## 7. Related Documentation
+## 8. Unified Contextual & LoreCraft Studio Inspector (`RightDrawerPanel`)
+
+The desktop right drawer provides a context-aware inspection surface that adapts between game narrative lore and AI runtime engine internals without visual duplication:
+
+```
+┌────────────────────────────────────────────────────────┐
+│ 🏰 LORECRAFT STUDIO INSPECTOR                      [×] │
+├──────────────────────────┬─────────────────────────────┤
+│ [ 🏰 Game World ] (Active)│ [ ⚙️ AI Engine ]            │
+├──────────────────────────┴─────────────────────────────┤
+│ ▌ ACTIVE NPC & STRATEGIC CONTEXT                       │
+│   Gideon Stonehand • Ironforge Foundry     STAGE 1 / 5 │
+│   Voice: Gravelly, deliberate • Mood: Suspicious       │
+│                                                        │
+│ ▌ ACTIVE WORLD STATE ANCHORS (< 50 KB)                 │
+│   #vanguard_iron_rations               [FACTION_STATE] │
+│   #syndicate_dock_manifests            [FACTION_STATE] │
+│   #enclave_aqueduct_subsidence         [WORLD_EVENT]   │
+│   #Aether-Core Resonance               [WORLD_CANON]   │
+│                                                        │
+│ ▌ GAMEPLAY PERFORMANCE & MEMORY BUDGET                 │
+│   EDGE LORE BUNDLE METER           31.4 KB / 50.0 KB   │
+│   [████████████████████░░░░░░░░░░]                     │
+│   Dialogue TTFT: 58 ms  • Cloud Egress: 0.0 KB         │
+│   Active Engine: Gemma 4 int4                          │
+│                                                        │
+│ ▌ CANON & VOICE ARBITER SCORECARD                      │
+│   Alignment: 94% • Tone Consistency: 96%               │
+│   Cloud Run Link: CLOSED (Healthy)                     │
+└────────────────────────────────────────────────────────┘
+```
+
+### Key Inspector Features & Affordances:
+1. **Destination-Aware Auto-Switching**:
+   - In **LoreCraft Studio** (`ShellNavDestination.loreCraftStudio`), the inspector automatically initializes in **Game World** mode (`InspectorMode.gameWorld`).
+   - In **Assistant Workspace** (`ShellNavDestination.assistant`), it initializes in **AI Engine** mode (`InspectorMode.aiEngine`).
+2. **Interactive Segmented Mode Switcher**:
+   - Allows users to switch views on demand with a single tap (`[ 🏰 Game World ]` vs `[ ⚙️ AI Engine ]`).
+3. **World Lore vs Engine Guardrail Separation**:
+   - Game World mode surfaces narrative anchors (`WORLD_CANON`, `FACTION_STATE`, `TACTICAL_SECURITY`, `WORLD_EVENT`) and suppresses low-level engine invariants (`Quantization Policy`, `Edge Bundle Budget`).
+   - AI Engine mode surfaces runtime system guardrails, PII scrub deltas, and token throughput telemetry.
+4. **Edge Working Memory Meter**:
+   - Real-time gauge tracking the compact edge bundle against the strict `< 50.0 KB` mobile NPU limit.
+5. **Canon Arbiter & Circuit Breaker Link**:
+   - Integrates the live canon rater scorecard with a quiet circuit breaker health indicator and a one-click manual reset affordance.
+6. **Zero Duplicate Drawers**:
+   - Studio's internal right panel is coordinated with `ShellLayout`'s unified 320px drawer, ensuring a single consistent inspection panel across the entire application.
+
+---
+
+## 10. Navigation Architecture & Developer Tool Partitioning
+
+To maintain a clean distinction between the user-facing game experience and underlying edge-cloud infrastructure, the global left navigation rail is explicitly partitioned into two distinct categories:
+
+### A. Navigation Categories
+1. **GAME WORLD (LORECRAFT)**:
+   - **LoreCraft Studio**: Full interactive RPG experience featuring reactive NPC dialogue, 5-stage quest tracks, living faction simulation, and generative A2UI moment cards.
+   - **Edge Agent Boot**: Edge device initialization console demonstrating the 4 cold-start memory patterns (Directives, JIT Fetch, Task-Bound Context, and 3 AM Cloud Dream Delta Sync).
+2. **DEVELOPER TOOLS (SYSTEM DIAGNOSTICS)**:
+   - **Memory Studio**: Deep inspection notebook for episodic turns, PII scrubbing logs, on-device SQLite WASM cache, and cloud knowledge graph harmonization.
+   - **Model Test Bench**: Multi-model simultaneous comparison bench running identical prompts across 4 edge-cloud tiers with standardized 4-rubric scoring.
+   - **Switching Policy**: Declarative routing rule matrix evaluating latency, token budget, context complexity, and 0 KB PII egress guarantees.
+   - **Feature Synthesizer**: Edge-to-cloud UI compiler synthesizing interactive sandboxes from durable knowledge anchors (<50 KB budget).
+   - **Assistant Workspace**: Dual edge-cloud AI chat shell with dynamic Intent Pills and real-time execution telemetry.
+
+### B. Navigation Bridges & Page Intent Badges
+- **Contextual Bridges**: LoreCraft Studio includes direct action buttons (`DEV MEMORY ➔` in the top bar, `INSPECT IN MEMORY STUDIO ➔` in the Living Lore drawer) so developers can seamlessly jump to inspect live turn ingestion.
+- **Diagnostic Badges**: All dev tools display a quiet uppercase indicator (`DEVELOPER TOOL // SYSTEM DIAGNOSTIC`) with contextual subtitle explanations to clarify their role as engineering instruments.
+- **Succinct Explainer Cards**:
+  - **Memory Studio**: Collapsible 4-step mechanisms guide explaining Turn Capture, On-Device Regex Scrubbing, Zero-Latency Context Injection, and Cloud Harmonization. Includes origin filter (`ALL SOURCES`, `⚔ LORECRAFT GAME WORLD`, `💬 ASSISTANT SHELL`).
+  - **Model Test Bench**: Standardized rubric explainer highlighting the composite formula: `Score = 0.35*Semantic + 0.25*Compliance + 0.25*Safety + 0.15*Efficiency`.
+  - **Switching Policy**: Route lock explainer detailing 100% on-device masking with guaranteed 0 KB egress for privacy compliance.
+  - **Feature Synthesizer**: Sandbox compiler explainer detailing how durable knowledge nodes dynamically generate live UI components.
+
+---
+
+## 11. Related Documentation
 - [LoreCraft Dynamic Gameplay](lorecraft_dynamic_gameplay.md): Narrative systems and A2UI interaction surfaces.
 - [Routing Guide](routing_guide.md): Intent Pill visual contracts and switching rationale modals.
 - [Memory Pipeline Specification](memory_pipeline.md): Quiet typography in memory inspectors and boot sequence telemetry.

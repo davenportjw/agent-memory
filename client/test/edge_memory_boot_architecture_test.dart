@@ -112,6 +112,80 @@ void main() {
       expect(stopwatch.elapsedMilliseconds, lessThan(10)); // Local cache hit
     });
 
+    test('Pattern 3: Pre-Emptive Caching evicts previous scene context when changing between scenes', () async {
+      await memoryService.bootEdgeAgent();
+
+      // 1. Initial State: No sector context is cached locally
+      expect(memoryService.localTopicCache.containsKey('volcanic_slag_thresholds'), isFalse);
+      expect(memoryService.localTopicCache.containsKey('undercity_sluice_bypass'), isFalse);
+      expect(memoryService.localTopicCache.containsKey('keystone_spire_harmonics'), isFalse);
+
+      // 2. Approach Foundry
+      final foundryEvent = await memoryService.triggerStatePrefetch(
+        sceneId: 'foundry',
+        stateTrigger: 'Approaching Ironforge Foundry',
+        topicIds: ['volcanic_slag_thresholds', 'iron_vanguard_ciphers'],
+      );
+
+      expect(foundryEvent.status, 'PREFETCHED');
+      expect(foundryEvent.bytesCached, greaterThan(0));
+      expect(foundryEvent.evictedTopicIds, isEmpty);
+      expect(memoryService.activePrefetchedSceneId, 'foundry');
+      expect(memoryService.localTopicCache.containsKey('volcanic_slag_thresholds'), isTrue);
+      expect(memoryService.localTopicCache.containsKey('iron_vanguard_ciphers'), isTrue);
+      expect(memoryService.masterIndex.entries.firstWhere((e) => e.topicId == 'volcanic_slag_thresholds').isCachedLocally, isTrue);
+
+      // 3. Shift to Docks: Must cache Docks topics AND evict Foundry topics
+      final docksEvent = await memoryService.triggerStatePrefetch(
+        sceneId: 'docks',
+        stateTrigger: 'Descending into Oakhaven Docks',
+        topicIds: ['undercity_sluice_bypass', 'smuggler_cipher_routes'],
+      );
+
+      expect(docksEvent.status, 'PREFETCHED');
+      expect(docksEvent.targetTopicIds, contains('undercity_sluice_bypass'));
+      expect(docksEvent.evictedTopicIds, contains('volcanic_slag_thresholds'));
+      expect(docksEvent.evictedTopicIds, contains('iron_vanguard_ciphers'));
+      expect(docksEvent.bytesEvicted, greaterThan(0));
+      expect(memoryService.activePrefetchedSceneId, 'docks');
+
+      // Verify Docks topics are resident in local memory
+      expect(memoryService.localTopicCache.containsKey('undercity_sluice_bypass'), isTrue);
+      expect(memoryService.localTopicCache.containsKey('smuggler_cipher_routes'), isTrue);
+      expect(memoryService.masterIndex.entries.firstWhere((e) => e.topicId == 'undercity_sluice_bypass').isCachedLocally, isTrue);
+
+      // Verify Foundry topics are COMPLETELY REMOVED from local memory
+      expect(memoryService.localTopicCache.containsKey('volcanic_slag_thresholds'), isFalse);
+      expect(memoryService.localTopicCache.containsKey('iron_vanguard_ciphers'), isFalse);
+      expect(memoryService.masterIndex.entries.firstWhere((e) => e.topicId == 'volcanic_slag_thresholds').isCachedLocally, isFalse);
+      expect(memoryService.masterIndex.entries.firstWhere((e) => e.topicId == 'iron_vanguard_ciphers').isCachedLocally, isFalse);
+
+      // 4. Shift to Spire: Must cache Spire topics AND evict Docks topics
+      final spireEvent = await memoryService.triggerStatePrefetch(
+        sceneId: 'spire',
+        stateTrigger: 'Ascending Archivist Spire',
+        topicIds: ['keystone_spire_harmonics', 'ancient_grove_roots'],
+      );
+
+      expect(spireEvent.evictedTopicIds, contains('undercity_sluice_bypass'));
+      expect(spireEvent.evictedTopicIds, contains('smuggler_cipher_routes'));
+      expect(memoryService.localTopicCache.containsKey('keystone_spire_harmonics'), isTrue);
+      expect(memoryService.localTopicCache.containsKey('undercity_sluice_bypass'), isFalse);
+      expect(memoryService.masterIndex.entries.firstWhere((e) => e.topicId == 'undercity_sluice_bypass').isCachedLocally, isFalse);
+
+      // 5. Shift back to Foundry: Evicts Spire topics and re-caches Foundry
+      final returnEvent = await memoryService.triggerStatePrefetch(
+        sceneId: 'foundry',
+        stateTrigger: 'Returning to Ironforge Foundry',
+        topicIds: ['volcanic_slag_thresholds', 'iron_vanguard_ciphers'],
+      );
+
+      expect(returnEvent.evictedTopicIds, contains('keystone_spire_harmonics'));
+      expect(returnEvent.evictedTopicIds, contains('ancient_grove_roots'));
+      expect(memoryService.localTopicCache.containsKey('volcanic_slag_thresholds'), isTrue);
+      expect(memoryService.localTopicCache.containsKey('keystone_spire_harmonics'), isFalse);
+    });
+
     test('Pattern 4: Asynchronous Syncs (The Morning After) applies 3 AM delta and invalidates cache', () async {
       await memoryService.bootEdgeAgent();
 

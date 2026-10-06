@@ -45,6 +45,14 @@ class _MemoryNotebookCellState extends State<MemoryNotebookCell> {
   }
 
   @override
+  void didUpdateWidget(MemoryNotebookCell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialExpanded != widget.initialExpanded) {
+      _isExpanded = widget.initialExpanded;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Card(
       color: SepiaTheme.paper,
