@@ -1,0 +1,28 @@
+{
+  "name": "mult-agent-madness",
+  "version": "1.0.0",
+  "description": "Distributed AI Architecture: Gemma 4 Edge (Chrome WASM / Android) + Gemini 3.8 Flash Cloud with Durable Memory Pipeline",
+  "scripts": {
+    "start": "./start_emulator.sh",
+    "test:server": "cd server && go test -v ./...",
+    "test:client": "cd client && flutter test",
+    "test:terraform": "cd terraform && terraform fmt -check && terraform validate",
+    "test:all": "npm run test:terraform && npm run test:server && npm run test:client",
+    "bench:eval": "cd server && go test -v -run TestLLMAsARaterBenchmark ./tests/...",
+    "setup:android": "bash scripts/setup_android_sdk.sh",
+    "create:avd": "bash scripts/create_gemma_avd.sh",
+    "run:emulator": "bash scripts/run_android_emulator.sh"
+  },
+  "keywords": [
+    "distributed-ai",
+    "gemma-4",
+    "gemini-3.8-flash",
+    "edge-ai",
+    "cloud-run",
+    "flutter",
+    "golang",
+    "terraform"
+  ],
+  "author": "Antigravity Team",
+  "license": "Apache-2.0"
+}

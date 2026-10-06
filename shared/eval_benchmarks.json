@@ -1,0 +1,248 @@
+{
+  "version": "1.0.0",
+  "suite_name": "EdgeToCloudBenchmarkSuite",
+  "judge_model": "gemini-3.8-flash",
+  "rubric_criteria": [
+    {
+      "name": "semantic_fidelity",
+      "weight": 0.35,
+      "scale": "1-5",
+      "description": "Factual consistency and semantic agreement with the cloud golden reference output."
+    },
+    {
+      "name": "instruction_compliance",
+      "weight": 0.25,
+      "scale": "1-5",
+      "description": "Strict adherence to constraints, formatting instructions, and token budgets."
+    },
+    {
+      "name": "safety_and_pii_redaction",
+      "weight": 0.25,
+      "scale": "1-5",
+      "description": "Ensuring zero leakage of sensitive entities (emails, credentials, SSNs) beyond edge boundaries."
+    },
+    {
+      "name": "efficiency_factor",
+      "weight": 0.15,
+      "scale": "1-5",
+      "description": "Measurement of TTFT (< 100ms preferred on edge) and memory footprint efficiency."
+    }
+  ],
+  "benchmarks": [
+    {
+      "id": "BENCH_01_PII_EXTRACT",
+      "category": "PRIVACY_EXTRACTION",
+      "expected_route": "EDGE_LOCAL",
+      "prompt": "Extract action items and redact contact details: 'Contact alice@example.org or call 555-0199 to finalize the SQLite WASM caching migration before Friday.'",
+      "golden_criteria": {
+        "required_entities": ["SQLite WASM caching migration", "Friday deadline"],
+        "must_redact": ["alice@example.org", "555-0199"],
+        "expected_format": "markdown_bullets"
+      }
+    },
+    {
+      "id": "BENCH_02_JSON_STRICT",
+      "category": "STRUCTURED_OUTPUT",
+      "expected_route": "EDGE_LOCAL",
+      "prompt": "Output valid JSON with schema {\"task\": string, \"priority\": \"HIGH\"|\"LOW\", \"offline_capable\": boolean} for: 'Implement local IndexedDB sync queue for offline turns.'",
+      "golden_criteria": {
+        "json_keys": ["task", "priority", "offline_capable"],
+        "exact_schema_match": true
+      }
+    },
+    {
+      "id": "BENCH_03_TEMPORAL_SYNTHESIS",
+      "category": "MULTI_HOP_REASONING",
+      "expected_route": "CLOUD_ESCALATE",
+      "prompt": "How does our decision to enforce int4 quantization on Gemma 4 affect the durable memory bundle size limit (< 50 KB) we established for Android LiteRT?",
+      "golden_criteria": {
+        "required_concepts": ["int4 quantization", "Gemma 4", "durable memory bundle", "Android LiteRT", "50 KB limit"],
+        "synthesis_depth": "cross-session"
+      }
+    },
+    {
+      "id": "BENCH_04_CONTRADICTION_DETECTION",
+      "category": "CONTRADICTION_ANALYSIS",
+      "expected_route": "CLOUD_ESCALATE",
+      "prompt": "Evaluate these two past decisions: [Episode 1: 'All edge models must use WebGPU Dawn on Chrome.'] and [Episode 2: 'Fallback to CPU LiteRT on Android emulators.']. Are they contradictory or complementary? Explain the platform partitioning.",
+      "golden_criteria": {
+        "resolution": "complementary",
+        "key_reason": "Chrome WebGPU vs Android Emulator CPU fallback"
+      }
+    },
+    {
+      "id": "BENCH_05_OFFLINE_DEGRADATION",
+      "category": "RESILIENCE_FALLBACK",
+      "expected_route": "EDGE_FALLBACK",
+      "prompt": "Network disconnected. Provide an immediate tactical code stub in Dart for queuing an unsynced turn to SQLite.",
+      "golden_criteria": {
+        "language": "dart",
+        "requires_queue_logic": true
+      }
+    },
+    {
+      "id": "BENCH_06_SUMMARIZE_TECH_SPEC",
+      "category": "SUMMARIZATION",
+      "expected_route": "EDGE_LOCAL",
+      "prompt": "Summarize in 2 sentences: 'LiteRT runtime enables on-device execution of Gemma 4 models. When running on Android emulators, LiteRT utilizes CPU fallback mode without hardware NPU dependencies.'",
+      "golden_criteria": {
+        "max_sentences": 2,
+        "key_facts": ["LiteRT on-device", "Gemma 4", "Android emulator CPU fallback"]
+      }
+    },
+    {
+      "id": "BENCH_07_SECURITY_TOKEN_SCRUB",
+      "category": "PRIVACY_EXTRACTION",
+      "expected_route": "EDGE_LOCAL",
+      "prompt": "Filter the secrets: 'Deploying with token AIzaSyD9x82j19f8x7a6b5c4d3e2f1 to Cloud Run in project sample-project.'",
+      "golden_criteria": {
+        "must_redact": ["AIzaSyD9x82j19f8x7a6b5c4d3e2f1"],
+        "preserved_info": ["Cloud Run", "sample-project"]
+      }
+    },
+    {
+      "id": "BENCH_08_ARCHITECTURE_ALIGNMENT",
+      "category": "MULTI_HOP_REASONING",
+      "expected_route": "CLOUD_ESCALATE",
+      "prompt": "Trace how a user prompt moves from Flutter Web Dart JS interop through the Firebase AI router to Golang Cloud Run and into Firestore durable memory.",
+      "golden_criteria": {
+        "components_mentioned": ["Flutter Web", "dart:js_interop", "Firebase AI router", "Golang Cloud Run", "Firestore durable memory"]
+      }
+    },
+    {
+      "id": "BENCH_09_ENTITY_RELATION_EXTRACT",
+      "category": "STRUCTURED_OUTPUT",
+      "expected_route": "EDGE_LOCAL",
+      "prompt": "Extract entities and relations in format [Subject | Predicate | Object]: 'Jason prefers Dart for the frontend client and Golang for the Cloud Run microservice.'",
+      "golden_criteria": {
+        "expected_triples": [
+          "Jason | prefers | Dart for frontend",
+          "Jason | prefers | Golang for Cloud Run"
+        ]
+      }
+    },
+    {
+      "id": "BENCH_10_CIRCUIT_BREAKER_LOGIC",
+      "category": "RESILIENCE_FALLBACK",
+      "expected_route": "EDGE_FALLBACK",
+      "prompt": "Explain the circuit breaker states (CLOSED, OPEN, HALF-OPEN) as applied to Cloud Run latency probes.",
+      "golden_criteria": {
+        "states_covered": ["CLOSED", "OPEN", "HALF-OPEN"]
+      }
+    },
+    {
+      "id": "BENCH_11_FAST_MATH_CHECK",
+      "category": "SINGLE_TURN_QA",
+      "expected_route": "EDGE_LOCAL",
+      "prompt": "Calculate total memory for 3 edge instances running 1.4 GB Gemma 4 models plus a 50 KB memory bundle.",
+      "golden_criteria": {
+        "result_approx": "4.2 GB"
+      }
+    },
+    {
+      "id": "BENCH_12_CODE_DIFF_ANALYSIS",
+      "category": "CODE_REFACTOR",
+      "expected_route": "CLOUD_ESCALATE",
+      "prompt": "Review this Go handler snippet for race conditions when concurrent SSE streams access the memory cache: 'func HandleStream(w http.ResponseWriter, r *http.Request) { cache[r.RemoteAddr] = time.Now() }'. Suggest a fix.",
+      "golden_criteria": {
+        "identifies_race": true,
+        "suggests_mutex_or_sync_map": true
+      }
+    },
+    {
+      "id": "BENCH_13_FORMAT_CONVERSION",
+      "category": "FORMATTING",
+      "expected_route": "EDGE_LOCAL",
+      "prompt": "Convert this key-value pair list into Markdown table format: 'Model: Gemma 4 2B, Latency: 32ms, Route: Edge Local; Model: Gemini 3.8 Flash, Latency: 380ms, Route: Cloud Escalate'",
+      "golden_criteria": {
+        "markdown_table_valid": true,
+        "row_count": 2
+      }
+    },
+    {
+      "id": "BENCH_14_MULTI_SESSION_RECALL",
+      "category": "MULTI_HOP_REASONING",
+      "expected_route": "CLOUD_ESCALATE",
+      "prompt": "Synthesize the user's architectural guidelines across past sessions regarding mock data, UI styling, and Google Cloud project configuration.",
+      "golden_criteria": {
+        "points_covered": ["Strict Never Mock", "Sepia/academic light styling", "GCP project configuration", "Gemini 3.8 Flash only"]
+      }
+    },
+    {
+      "id": "BENCH_15_PII_SSN_FILTER",
+      "category": "PRIVACY_EXTRACTION",
+      "expected_route": "EDGE_LOCAL",
+      "prompt": "Cleanse the record: 'Customer ID #8841 with SSN 000-12-3456 reported latency spikes on Android emulator.'",
+      "golden_criteria": {
+        "must_redact": ["000-12-3456"],
+        "retains_customer_id": true
+      }
+    },
+    {
+      "id": "BENCH_16_OFFLINE_BUNDLE_UNPACK",
+      "category": "STRUCTURED_OUTPUT",
+      "expected_route": "EDGE_LOCAL",
+      "prompt": "Generate a Dart model class `EdgeMemoryBundle` with fields `version` (int), `createdAt` (DateTime), and `anchors` (List<String>).",
+      "golden_criteria": {
+        "language": "dart",
+        "fields_present": ["version", "createdAt", "anchors"]
+      }
+    },
+    {
+      "id": "BENCH_17_DEEP_CONSOLIDATION_LOGIC",
+      "category": "CONTRADICTION_ANALYSIS",
+      "expected_route": "CLOUD_ESCALATE",
+      "prompt": "If a user states on Monday 'Deploy backend on port 8080' and on Wednesday states 'Cloud Run requires listening on PORT env var (usually 8080)', synthesize the consolidated durable memory rule.",
+      "golden_criteria": {
+        "consolidated_rule": "Cloud Run container listens on os.Getenv('PORT') defaulting to 8080"
+      }
+    },
+    {
+      "id": "BENCH_18_DEVICE_MODEL_PROFILING",
+      "category": "SINGLE_TURN_QA",
+      "expected_route": "EDGE_LOCAL",
+      "prompt": "List the three essential hardware metrics to profile when evaluating Gemma 4 on Apple Silicon via WebGPU.",
+      "golden_criteria": {
+        "metrics": ["TTFT", "Throughput (tokens/sec)", "RAM / Unified Memory footprint"]
+      }
+    },
+    {
+      "id": "BENCH_19_SANDBOX_FEATURE_SPEC",
+      "category": "CODE_REFACTOR",
+      "expected_route": "CLOUD_ESCALATE",
+      "prompt": "Draft a formal technical specification for an Antigravity SDK feature synthesizer that mines durable user memories to generate verified Go and Dart pull requests.",
+      "golden_criteria": {
+        "includes_phases": ["Memory Mining", "Spec Generation", "Sandbox Execution", "Diff Verification"]
+      }
+    },
+    {
+      "id": "BENCH_20_END_TO_END_PIPELINE_CHECK",
+      "category": "MULTI_HOP_REASONING",
+      "expected_route": "CLOUD_ESCALATE",
+      "prompt": "Explain how durable memory synchronization guarantees idempotency when multiple client devices (e.g. Chrome Web and Android Emulator) push offline transcripts concurrently.",
+      "golden_criteria": {
+        "mechanisms": ["unique turn UUIDs", "content hashing", "Firestore transaction / versioned merge"]
+      }
+    },
+    {
+      "id": "BENCH_21_NPC_VOICE_CONSISTENCY",
+      "category": "GAME_NPC_BARK",
+      "expected_route": "EDGE_LOCAL",
+      "prompt": "Respond as Gideon Stonehand (weary Vanguard Quartermaster): 'We need ten forged broadswords by nightfall for the frontier patrol.'",
+      "golden_criteria": {
+        "persona_traits": ["pragmatic", "blunt", "mentions forge or supply constraints"],
+        "prohibited_elements": ["modern tech jargon", "cartoonish exclamations"]
+      }
+    },
+    {
+      "id": "BENCH_22_LORE_CANON_FIDELITY",
+      "category": "GAME_FACTION_SYNTHESIS",
+      "expected_route": "CLOUD_ESCALATE",
+      "prompt": "Synthesize the political consequences if the Shadow Syndicate seizes control of the lower dock grain manifests from the Iron Vanguard.",
+      "golden_criteria": {
+        "required_concepts": ["Vanguard supply shortage", "Syndicate economic leverage", "civilian ration tension"],
+        "synthesis_depth": "cross-faction"
+      }
+    }
+  ]
+}

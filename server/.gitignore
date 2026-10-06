@@ -1,0 +1,5 @@
+# Binaries
+/server
+*.exe
+*.test
+bin/

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://a2ui.org/schemas/v0.9/catalog.json",
+  "catalogId": "a2ui:org:lorecraft:v1",
+  "name": "LoreCraft Generative Component Catalog",
+  "version": "1.0.0",
+  "description": "Static declarative component catalog for LoreCraft Studio on-device proactive NPC turns and cloud visual synthesis.",
+  "components": {
+    "Card": {
+      "description": "Visual container with optional border accent and background tone.",
+      "properties": {
+        "variant": { "type": "string", "enum": ["default", "outlined", "elevated", "edge_accent", "cloud_accent"], "default": "default" },
+        "padding": { "type": "number", "default": 12 }
+      }
+    },
+    "Text": {
+      "description": "Typography component for narrative text, barks, dialog, or stage cues.",
+      "properties": {
+        "text": { "type": "string", "required": true },
+        "variant": { "type": "string", "enum": ["heading", "subheading", "body", "caption", "stage_cue"], "default": "body" },
+        "color": { "type": "string", "enum": ["default", "muted", "edge", "cloud", "amber", "terracotta"], "default": "default" }
+      }
+    },
+    "Badge": {
+      "description": "Status or telemetry chip displaying execution context or faction alignment.",
+      "properties": {
+        "label": { "type": "string", "required": true },
+        "tone": { "type": "string", "enum": ["edge", "cloud", "neutral", "warning", "info"], "default": "neutral" },
+        "icon": { "type": "string", "enum": ["bolt", "cloud", "shield", "eye", "info"], "default": "info" }
+      }
+    },
+    "Button": {
+      "description": "Direct action trigger that dispatches an A2UI action event.",
+      "properties": {
+        "label": { "type": "string", "required": true },
+        "actionId": { "type": "string", "required": true },
+        "tone": { "type": "string", "enum": ["primary", "secondary", "edge", "cloud"], "default": "primary" },
+        "intent": { "type": "string", "enum": ["local_dialogue", "visual_synthesis", "inspect_state"], "default": "local_dialogue" },
+        "payload": { "type": "object" }
+      }
+    },
+    "ChoiceGroup": {
+      "description": "Interactive group of selectable pills for narrative branching or dilemma resolution.",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "required": true },
+              "label": { "type": "string", "required": true },
+              "intent": { "type": "string", "enum": ["local_dialogue", "visual_synthesis", "inspect_state"], "default": "local_dialogue" },
+              "description": { "type": "string" },
+              "consequence": { "type": "string" },
+              "prompt": { "type": "string" },
+              "requiresCloud": { "type": "boolean", "default": false }
+            },
+            "required": ["id", "label"]
+          }
+        },
+        "selectedId": { "type": "string" }
+      }
+    },
+    "Slider": {
+      "description": "Continuous or discrete slider for bartering, resource allocation, or risk setting.",
+      "properties": {
+        "label": { "type": "string", "required": true },
+        "min": { "type": "number", "default": 0 },
+        "max": { "type": "number", "default": 100 },
+        "value": { "type": "number", "default": 50 },
+        "step": { "type": "number", "default": 1 },
+        "unit": { "type": "string", "default": "" },
+        "actionId": { "type": "string", "default": "update_slider" }
+      }
+    },
+    "ImageCanvas": {
+      "description": "Multimodal display canvas for cloud-synthesized visual artifacts (Nano Banana 2 Lite).",
+      "properties": {
+        "imageBase64": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "caption": { "type": "string" },
+        "aspectRatio": { "type": "string", "enum": ["1:1", "16:9", "4:3"], "default": "1:1" },
+        "modelAttribution": { "type": "string", "default": "Nano Banana 2 Lite (Cloud Run)" },
+        "prompt": { "type": "string" },
+        "latencyMs": { "type": "number" },
+        "egressBytes": { "type": "number" }
+      }
+    },
+    "Divider": {
+      "description": "Horizontal separator line between narrative sections.",
+      "properties": {
+        "spacing": { "type": "number", "default": 8 }
+      }
+    },
+    "Row": {
+      "description": "Horizontal layout container.",
+      "properties": {
+        "spacing": { "type": "number", "default": 8 },
+        "alignment": { "type": "string", "enum": ["start", "center", "end", "spaceBetween"], "default": "start" }
+      }
+    },
+    "Column": {
+      "description": "Vertical layout container.",
+      "properties": {
+        "spacing": { "type": "number", "default": 8 },
+        "alignment": { "type": "string", "enum": ["start", "center", "end"], "default": "start" }
+      }
+    }
+  }
+}

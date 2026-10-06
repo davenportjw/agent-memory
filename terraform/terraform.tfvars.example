@@ -1,0 +1,27 @@
+# Google Cloud Project Configuration
+project_id  = "your-gcp-project-id"
+region      = "us-central1"
+environment = "prod"
+
+# Service Account Configuration
+service_account_id = "distributed-ai-sa"
+
+# Artifact Registry Configuration
+artifact_registry_repo_id = "distributed-ai-backend"
+
+# Cloud Storage Bucket Configuration
+gcs_staging_bucket_name = "your-gcp-project-id-vertex-staging"
+
+# Cloud Firestore Configuration ('(default)' or named 'durable-memory')
+firestore_database_name = "(default)"
+
+# Cloud Run Configuration
+cloud_run_service_name   = "distributed-ai-backend"
+backend_image            = "us-docker.pkg.dev/cloudrun/container/hello"
+cloud_run_min_instances  = 0
+cloud_run_max_instances  = 10
+cloud_run_cpu            = "1000m"
+cloud_run_memory         = "512Mi"
+cloud_run_container_port = 8080
+allow_unauthenticated    = true
+enable_apis              = true

@@ -1,0 +1,25 @@
+name: client
+description: "Antigravity Edge-to-Cloud Distributed AI Client (Gemma 4 & Gemini 3.8 Flash)"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - ../shared/routing_policy.json
+    - ../shared/memory_schema.json
+    - ../shared/eval_benchmarks.json
+    - assets/catalogs/lorecraft_catalog.json

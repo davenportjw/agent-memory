@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "policy_name": "EdgeCloudDynamicSwitchingPolicy",
+  "description": "Declarative policy rules for routing requests between on-device models (Gemma 4) and cloud models (Gemini 3.8 Flash).",
+  "edge_model": {
+    "family": "gemma-4",
+    "variants": ["gemma-4-2b", "gemma-4-a4b"],
+    "max_context_tokens": 4096,
+    "quantization": "int4",
+    "runtimes": ["webgpu-wasm", "litert-cpu", "chrome-prompt-api"]
+  },
+  "cloud_model": {
+    "model_id": "gemini-3.8-flash",
+    "project_id": "your-gcp-project-id",
+    "location": "us-central1",
+    "max_context_tokens": 1048576,
+    "auth_mode": "ADC"
+  },
+  "rules": [
+    {
+      "id": "RULE_STRICT_PRIVACY",
+      "priority": 100,
+      "description": "If user prompt or context contains detected PII, credentials, or confidential tags, enforce local on-device execution.",
+      "condition": {
+        "or": [
+          {"field": "privacy_classification", "equals": "CONFIDENTIAL"},
+          {"field": "has_pii", "equals": true}
+        ]
+      },
+      "action": {
+        "route": "EDGE_LOCAL",
+        "intent_label": "Local Privacy Intent: PII Sanitization & Task Extraction",
+        "redact_before_sync": true
+      }
+    },
+    {
+      "id": "RULE_CIRCUIT_BREAKER_OFFLINE",
+      "priority": 90,
+      "description": "If client network is offline or cloud latency probe exceeds threshold, fall back to local edge execution.",
+      "condition": {
+        "field": "network_status",
+        "equals": "OFFLINE"
+      },
+      "action": {
+        "route": "EDGE_FALLBACK",
+        "intent_label": "Offline Fallback Intent: Degraded Tactical Answer",
+        "queue_for_reconciliation": true
+      }
+    },
+    {
+      "id": "RULE_CONTEXT_LIMIT_EXCEEDED",
+      "priority": 80,
+      "description": "If prompt plus recent conversation history exceeds edge context capacity (4096 tokens), escalate to cloud with PII scrubber.",
+      "condition": {
+        "field": "estimated_total_tokens",
+        "greater_than": 4096
+      },
+      "action": {
+        "route": "CLOUD_ESCALATE",
+        "intent_label": "Cloud Long-Context Intent: Extended Token Capacity",
+        "redact_pii_prior_to_egress": true
+      }
+    },
+    {
+      "id": "RULE_COMPLEXITY_ESCALATION",
+      "priority": 70,
+      "description": "If task classification requires multi-hop temporal reasoning, durable memory graph search, or large-scale synthesis, escalate to cloud.",
+      "condition": {
+        "field": "task_intent",
+        "in": [
+          "MULTI_HOP_REASONING",
+          "TEMPORAL_SYNTHESIS",
+          "CODE_REFACTOR",
+          "CONTRADICTION_ANALYSIS"
+        ]
+      },
+      "action": {
+        "route": "CLOUD_ESCALATE",
+        "intent_label": "Cloud Synthesis Intent: Cross-Session Architecture Alignment",
+        "inject_durable_memories": true
+      }
+    },
+    {
+      "id": "RULE_GAME_REACTIVE_BARK",
+      "priority": 85,
+      "description": "On-device reactive NPC dialogue, barter negotiation, and ambient barks within 60-FPS budget (<60ms TTFT).",
+      "condition": {
+        "field": "task_intent",
+        "in": [
+          "GAME_NPC_BARK",
+          "GAME_TRADE_BARTER",
+          "GAME_AMBIENT_DIALOGUE"
+        ]
+      },
+      "action": {
+        "route": "EDGE_LOCAL",
+        "intent_label": "Local Reactive Bark: 60-FPS Dialogue Budget (<60ms)",
+        "redact_before_sync": false
+      }
+    },
+    {
+      "id": "RULE_GAME_CAMPAIGN_SYNTHESIS",
+      "priority": 75,
+      "description": "Cross-faction narrative evolution, region-wide economic ripple analysis, and multi-act lore bible synthesis.",
+      "condition": {
+        "field": "task_intent",
+        "in": [
+          "GAME_FACTION_SYNTHESIS",
+          "GAME_LORE_BIBLE_QUERY",
+          "GAME_CAMPAIGN_PROGRESSION"
+        ]
+      },
+      "action": {
+        "route": "CLOUD_ESCALATE",
+        "intent_label": "Grand Campaign Synthesis: Faction & Lore Evolution",
+        "inject_durable_memories": true
+      }
+    },
+    {
+      "id": "RULE_EDGE_DEFAULT_FAST",
+      "priority": 10,
+      "description": "Default fast route for bounded single-turn Q&A, entity extraction, and text formatting.",
+      "condition": {
+        "field": "task_intent",
+        "in": [
+          "SUMMARIZATION",
+          "EXTRACTION",
+          "SINGLE_TURN_QA",
+          "FORMATTING"
+        ]
+      },
+      "action": {
+        "route": "EDGE_LOCAL",
+        "intent_label": "Local Edge Fast Intent: Zero-Latency Execution",
+        "redact_before_sync": false
+      }
+    }
+  ],
+  "pii_regex_patterns": {
+    "email": "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
+    "phone": "\\b(?:\\+?1[-.]?)?\\(?([0-9]{3})\\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})\\b",
+    "ssn": "\\b\\d{3}-\\d{2}-\\d{4}\\b",
+    "credit_card": "\\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})\\b",
+    "api_key": "\\b(?:AIza[0-9A-Za-z-_]{35}|sk-[a-zA-Z0-9]{32,})\\b"
+  }
+}
