@@ -41,6 +41,8 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
     // If not booted yet, trigger initial boot
     if (!widget.memoryService.bootState.isBooted) {
       widget.memoryService.bootEdgeAgent();
+    } else {
+      widget.memoryService.syncPlatformTelemetry();
     }
   }
 
@@ -296,7 +298,7 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Minimum Context Hydration & Lifecycle Governance for Gemma 4 int4 on Apple Silicon. '
+            'Minimum Context Hydration & Lifecycle Governance for Gemma 4 int4 on ${widget.memoryService.environmentalState.hardwareEngine.contains("Android") ? "Android LiteRT" : "Apple Silicon"}. '
             'Rather than loading monolithic memory blobs, the Envoy edge agent loads only the minimal operational triad: '
             'Core Directives, the Cloud Dream Master Index TOC, and Local Hardware Environment. All semantic knowledge is paged conditionally, '
             'cached predictively on state shifts, and reconciled asynchronously via 3 AM Cloud Dream Deltas.',
@@ -344,29 +346,65 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              // Battery interactive toggle
+              // Battery interactive toggle / live sync
               _buildInteractiveTelemetryPill(
                 key: const Key('btn_toggle_battery_sim'),
                 icon: isLowBattery ? Icons.battery_alert : (env.isCharging ? Icons.battery_charging_full : Icons.battery_std),
-                label: isLowBattery ? 'BATTERY: 12% [LOW POWER]' : 'BATTERY: ${(env.batteryLevel * 100).toInt()}% (AC)',
+                label: isLowBattery
+                    ? 'BATTERY: ${(env.batteryLevel * 100).toInt()}% [LOW POWER]'
+                    : 'BATTERY: ${(env.batteryLevel * 100).toInt()}% (${env.isCharging ? "AC" : "BATT"})',
                 color: isLowBattery ? SepiaTheme.terracotta : SepiaTheme.sage,
-                tooltip: 'Tap to toggle low-battery (<15%) simulation',
+                tooltip: widget.memoryService.isUsingPlatformTelemetry
+                    ? 'Live Android OS Battery (${(env.batteryLevel * 100).toInt()}%). Tap to refresh.'
+                    : 'Tap to toggle low-battery (<15%) simulation',
                 onTap: () {
                   AudioFeedbackService.instance.playClick();
-                  widget.memoryService.toggleBatterySimulation();
+                  if (widget.memoryService.isUsingPlatformTelemetry) {
+                    widget.memoryService.syncPlatformTelemetry().then((_) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('⚡ Live Android Telemetry: Battery ${(widget.memoryService.environmentalState.batteryLevel * 100).toInt()}% (${widget.memoryService.environmentalState.isCharging ? "AC" : "Battery"})'),
+                            backgroundColor: SepiaTheme.sage,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    });
+                  } else {
+                    widget.memoryService.toggleBatterySimulation();
+                  }
                 },
               ),
 
-              // Network interactive toggle
+              // Network interactive toggle / live sync
               _buildInteractiveTelemetryPill(
                 key: const Key('btn_toggle_network_sim'),
                 icon: isOffline ? Icons.wifi_off : Icons.wifi,
-                label: isOffline ? 'NET: OFFLINE (AIR-GAPPED)' : 'NET: ONLINE (WI-FI)',
+                label: isOffline
+                    ? 'NET: OFFLINE (AIR-GAPPED)'
+                    : 'NET: ${env.networkStatus.replaceAll("ONLINE_", "ONLINE (").replaceAll("_", "-") + (env.networkStatus.startsWith("ONLINE_") ? ")" : "")}',
                 color: isOffline ? SepiaTheme.terracotta : SepiaTheme.amber,
-                tooltip: 'Tap to toggle offline air-gapped simulation',
+                tooltip: widget.memoryService.isUsingPlatformTelemetry
+                    ? 'Live Android OS Network (${env.networkStatus}). Tap to refresh.'
+                    : 'Tap to toggle offline air-gapped simulation',
                 onTap: () {
                   AudioFeedbackService.instance.playClick();
-                  widget.memoryService.toggleNetworkSimulation();
+                  if (widget.memoryService.isUsingPlatformTelemetry) {
+                    widget.memoryService.syncPlatformTelemetry().then((_) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('📡 Live Android Telemetry: Network ${widget.memoryService.environmentalState.networkStatus}'),
+                            backgroundColor: SepiaTheme.sage,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    });
+                  } else {
+                    widget.memoryService.toggleNetworkSimulation();
+                  }
                 },
               ),
 

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import '../models/episodic_turn.dart';
 import '../models/memory_node.dart';
@@ -47,8 +48,12 @@ class LocalMemoryService {
     _initializeDefaultMemoryState();
   }
 
+  bool _isUsingPlatformTelemetry = false;
+  static const MethodChannel _androidChannel = MethodChannel('com.example.client/gemma_edge');
+
   bool get isOfflinePartition => _isOfflinePartition;
   List<String> get simulationLogs => List.unmodifiable(_simulationLogs);
+  bool get isUsingPlatformTelemetry => _isUsingPlatformTelemetry;
 
   List<EpisodicTurn> get workingContext => List.unmodifiable(_workingContext);
   List<EpisodicTurn> get ingestionQueue => List.unmodifiable(_ingestionQueue);
@@ -684,6 +689,40 @@ class LocalMemoryService {
   // ==========================================
   // Pattern 1: On-Load (The Boot State)
   // ==========================================
+
+  /// Synchronizes live hardware telemetry directly from the host operating system.
+  /// On Android, queries Android OS BatteryManager, ConnectivityManager, and Build info.
+  Future<bool> syncPlatformTelemetry() async {
+    try {
+      final res = await _androidChannel.invokeMapMethod<String, dynamic>('getDeviceTelemetry');
+      if (res != null) {
+        final double? battery = (res['batteryLevel'] as num?)?.toDouble();
+        final bool? charging = res['isCharging'] as bool?;
+        final String? netStatus = res['networkStatus'] as String?;
+        final String? engine = res['hardwareEngine'] as String?;
+
+        _environmentalState = _environmentalState.copyWith(
+          batteryLevel: battery ?? _environmentalState.batteryLevel,
+          isCharging: charging ?? _environmentalState.isCharging,
+          networkStatus: netStatus ?? _environmentalState.networkStatus,
+          hardwareEngine: engine ?? _environmentalState.hardwareEngine,
+        );
+        _bootState = _bootState.copyWith(environmentalState: _environmentalState);
+        _isUsingPlatformTelemetry = true;
+        _simulationLogs.insert(
+          0,
+          '[OS Telemetry] Synced live hardware vitals from Android OS: '
+          'Battery ${((_environmentalState.batteryLevel) * 100).toInt()}% (${_environmentalState.isCharging ? "AC" : "Battery"}), '
+          'Network ${_environmentalState.networkStatus}, Engine: ${_environmentalState.hardwareEngine}.',
+        );
+        notifyListeners();
+        return true;
+      }
+    } catch (_) {
+      // Platform channel unavailable (e.g. Web/Desktop without platform channel or unit tests)
+    }
+    return false;
+  }
 
   /// Spins up the edge agent by loading only the absolute minimum context required:
   /// Core Directives, Master Index (TOC map from cloud dream), and Environmental State.

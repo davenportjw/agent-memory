@@ -139,6 +139,49 @@ class _LoreCraftForesightPillState extends State<LoreCraftForesightPill> {
               _buildDossierRow('Target Model Engine', _modelTarget, Icons.memory),
               _buildDossierRow('Memory Destination', _currentEval.memoryDelta, Icons.storage),
               _buildDossierRow('Policy Rationale', _currentEval.justification, Icons.info_outline),
+              const SizedBox(height: 12),
+              const Divider(color: SepiaTheme.border, height: 1),
+              const SizedBox(height: 12),
+              Text(
+                'QUICK ROUTE BENCHMARK PROBES',
+                style: SepiaTheme.sans(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: SepiaTheme.inkMuted,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildBenchmarkProbeChip(
+                    ctx,
+                    label: "Bark: Steel Billets",
+                    prompt: "Inspect available high-carbon steel billets",
+                    tag: "Gemma 4 Edge (50ms)",
+                    tagColor: SepiaTheme.sage,
+                    tagBg: SepiaTheme.sageBg,
+                  ),
+                  _buildBenchmarkProbeChip(
+                    ctx,
+                    label: "Visual: Forge Aegis",
+                    prompt: "Generate concept art of the Forge Commander's Aegis",
+                    tag: "Nano Banana 2 Lite (~1.2s)",
+                    tagColor: SepiaTheme.azure,
+                    tagBg: SepiaTheme.azureBg,
+                  ),
+                  _buildBenchmarkProbeChip(
+                    ctx,
+                    label: "Escalate: Syndicate Seizure",
+                    prompt: "Synthesize the political consequences if the Syndicate seizes the docks",
+                    tag: "Cloud Flash (Multi-hop)",
+                    tagColor: SepiaTheme.amber,
+                    tagBg: SepiaTheme.amberBg,
+                  ),
+                ],
+              ),
               const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
@@ -154,6 +197,49 @@ class _LoreCraftForesightPillState extends State<LoreCraftForesightPill> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBenchmarkProbeChip(
+    BuildContext modalContext, {
+    required String label,
+    required String prompt,
+    required String tag,
+    required Color tagColor,
+    required Color tagBg,
+  }) {
+    return InkWell(
+      onTap: () {
+        widget.promptController.text = prompt;
+        Navigator.of(modalContext).pop();
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: SepiaTheme.paperSubtle,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: SepiaTheme.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.w600, color: SepiaTheme.ink)),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: tagBg,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                tag,
+                style: SepiaTheme.sans(fontSize: 9, fontWeight: FontWeight.w700, color: tagColor),
+              ),
+            ),
+          ],
         ),
       ),
     );

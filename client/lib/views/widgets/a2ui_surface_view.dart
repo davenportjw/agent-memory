@@ -268,10 +268,13 @@ class _A2UISurfaceViewState extends State<A2UISurfaceView> {
         : <String, dynamic>{};
 
     final isCloud = intent == 'visual_synthesis';
+    final isDossier = actionId == 'open_dossier' || intent == 'inspect_dossier';
 
     return OutlinedButton.icon(
       icon: Icon(
-        isCloud ? Icons.auto_awesome : Icons.chat_bubble_outline,
+        isCloud
+            ? Icons.auto_awesome
+            : (isDossier ? Icons.assignment_outlined : Icons.chat_bubble_outline),
         size: 14,
         color: isCloud ? SepiaTheme.azure : SepiaTheme.sage,
       ),

@@ -22,28 +22,39 @@ LoreCraft delivers an immersive, distributed AI game narrative experience powere
 ## 2. Dual-Model Architecture & Division of Labor
 
 ```
-                                [Player Input / A2UI Choice]
-                                              │
-                     ┌────────────────────────┴────────────────────────┐
-                     ▼                                                 ▼
-          [Model 1: Persona Model]                          [Model 2: Game Master Arbiter]
-          Role: Talking to User                             Role: Assessing Consequences & Next Actions
-          Location: Local Edge (Gemma 4 int4)               Location: Cloud Run (Gemini 3.8 Flash)
-          TTFT: < 60ms                                      Egress: Structured Prompt
-          Output:                                           Output:
-          • In-character speech                             • Objective completion check
-          • Stage cues / emotional tone                     • Faction reputation shift
-          • Direct response to player inquiry               • Defense readiness delta (+/- %)
-                                                            • Game Master strategic commentary
-                                                            • 3 Proactive contextual choices
-                     │                                                 │
-                     └────────────────────────┬────────────────────────┘
-                                              ▼
-                             [LoreCraft Dialogue Card Stream]
-                             • Persona Speech & Stage Cues (Always Visible)
-                             • Game Master Strategic Commentary Pill
-                             • Dual-Model Attribution Badges
-                             • Dynamic A2UI Action Surface (3 Choices)
+                      [In-Card A2UI Proactive Choice]     OR     [Foresight-Guided Freeform Input]
+                                      │                                         │
+                                      ▼                                         ▼
+                      ┌─────────────────────────────────────────────────────────┐
+                      │                 Dual-Model Architecture                 │
+                      └────────────────────────┬────────────────────────────────┘
+                                               │
+                      ┌────────────────────────┴────────────────────────┐
+                      ▼                                                 ▼
+           [Model 1: Persona Model]                          [Model 2: Game Master Arbiter]
+           Role: Talking to User                             Role: Assessing Consequences & Next Actions
+           Location: Local Edge (Gemma 4 int4)               Location: Cloud Run (Gemini 3.8 Flash)
+           TTFT: < 60ms                                      Egress: Structured Prompt
+           Output:                                           Output:
+           • In-character speech                             • Objective completion check
+           • Stage cues / emotional tone                     • Faction reputation shift
+           • Direct response to player inquiry               • Defense readiness delta (+/- %)
+                                                             • Game Master strategic commentary
+                                                             • 3 Proactive contextual choices
+                      │                                                 │
+                      └────────────────────────┬────────────────────────┘
+                                               ▼
+                              [LoreCraft Dialogue Card Stream]
+                              • Persona Speech & Stage Cues (Always Visible)
+                              • Game Master Strategic Commentary Pill
+                              • Dual-Model Attribution Badges
+                              • Dynamic A2UI Action Surface (3 Contextual Choices)
+                                               │
+                                               ▼
+                              [Streamlined Chat Input Surface]
+                              • LoreCraftForesightPill: Real-time route foresight (<60ms)
+                              • Firebase AI Routing Dossier Modal with Benchmark Probes
+                              • Freeform dialogue text field for unscripted player inquiry
 ```
 
 ---
@@ -184,6 +195,29 @@ When the user selects a `visual_synthesis` card:
 2. **Generative UI Rendering**: An inline `A2UiSurfaceCard` renders the materialized image with inspection affordances, metadata chips, and prompt provenance.
 3. **Local Follow-Up Bark**: The on-device Gemma 4 model observes the completion of the visual synthesis and automatically generates an immediate in-character reactive bark from the active NPC (e.g., Lyra inspecting the contraband seals under dim lantern light).
 
+### 5.4 Mission Dossier Progression & A2UI Game Moments
+To bridge high-level strategic objectives with dialogue-level action:
+1. **Dynamic Mission Dossier Synchronization**:
+   - `LoreCraftService` maintains an immutable `GameMission` state with primary objectives:
+     - `obj-containment`: Seal Lower Foundry Magma Gates (Gideon)
+     - `obj-aqueduct`: Safeguard Municipal Aqueducts & Civilian Canals (Lyra)
+     - `obj-resonance`: Stabilize Keystone Spire Harmonic Array (Elion)
+   - Objectives automatically mark `isCompleted: true` when:
+     - Specific tactical milestones are reached (e.g., cracking Undercity sluice ciphers).
+     - Game Master Arbiter completes an objective via prompt assessment.
+     - Quest stages advance to climax or victory stages.
+2. **Declarative A2UI Game Moments in Chat Stream**:
+   - Rather than confining game progression updates to passive modals or toasts, significant moments (tactical milestones, objective completions, mission victory) are directly declared in the A2UI component tree of the dialogue turn.
+   - `A2UISurface.createProactiveTurn` injects a dedicated `milestone_card` containing:
+     - `milestone_badge`: `🏆 STRATEGIC OBJECTIVE COMPLETED • MISSION DOSSIER UPDATED` chip.
+     - `milestone_title`: Clear objective headline in subheading typography.
+     - `milestone_desc`: Concrete narrative impact explaining what was achieved and why.
+     - `milestone_meta`: Faction alignment delta and memory provenance citation.
+     - `milestone_btn`: `Inspect Mission Dossier ➔` interactive button affordance (`actionId: 'open_dossier'`, `intent: 'inspect_dossier'`).
+3. **Zero False Affordances**:
+   - Tapping `Inspect Mission Dossier ➔` directly opens the strategic `LoreCraftMissionBriefingCard` dialog.
+   - Objectives completed in dialogue immediately show green checkmarks (`Icons.check_circle` in `SepiaTheme.sage`) within the dossier modal.
+
 ---
 
 ## 6. UI Architecture & Responsive Affordances
@@ -193,6 +227,7 @@ When the user selects a `visual_synthesis` card:
 - **Zero False Affordances**:
   - Interactive elements have explicit hover/focus states, key listeners, and accessible labels.
   - Informational badges (e.g. `CRITICAL • LEVEL 4 ARCANE SURGE`) use distinct quiet pill styling that cannot be confused with clickable buttons.
+  - **Streamlined Player Input**: Removed vestigial static prompt rows above the chat input to eliminate false affordances and NPC/stage disconnects. Input flows exclusively through in-card dynamic A2UI proactive choices and foresight-guided freeform input. Static model switching probes are preserved within the Firebase AI Routing Dossier modal.
 - **Responsive Flex Safety**: All horizontal headers, tags, and radio labels utilize `Wrap` or `Expanded` with `TextOverflow.ellipsis` to guarantee zero layout overflow across desktop split-screens, tablets, and mobile viewports down to 320px.
 
 ### 6.2 State Transition Diagram
@@ -214,9 +249,10 @@ stateDiagram-v2
         SynthesizeDynamicCards --> PlayerSelectsCard
         PlayerSelectsCard --> DispatchAction : Local Turn or Cloud Image
         DispatchAction --> CheckObjectiveProgress : Objective Completed?
-        CheckObjectiveProgress --> SynthesizeDynamicCards : Next Turn (3 Dynamic Cards)
-        ActiveDialogueSession --> ViewDossierModal : Tap "MISSION DOSSIER"
-        ViewDossierModal --> ActiveDialogueSession : Dismiss Dialog
+        CheckObjectiveProgress --> GameMomentA2UI : Milestone Reached / Objective Completed
+        GameMomentA2UI --> SynthesizeDynamicCards : Next Turn (With Milestone Card & Inspect Dossier Affordance)
+        ActiveDialogueSession --> ViewDossierModal : Tap "MISSION DOSSIER" or In-Card "Inspect Mission Dossier ➔"
+        ViewDossierModal --> ActiveDialogueSession : Dismiss Dialog (Updated Checkmarks Visible)
     }
 ```
 
@@ -228,8 +264,9 @@ Continuous verification is maintained across both unit and widget integration te
 
 | Test File | Coverage Areas | Verification Status |
 | :--- | :--- | :--- |
-| `client/test/mission_and_dynamic_cards_test.dart` | `GameMission` model integrity, immutable `copyWith`, `LoreCraftService` pre-dialogue guard, contact seeding, dynamic 3-card generation, Lyra water context handling, `LoreCraftMissionBriefingCard` widget rendering, radio selection, and studio deployment transitions | **11/11 PASSING** |
-| `client/test/lorecraft_switching_feature_test.dart` | `LoreCraftRouterDial` 3-mode stance toggle, `LoreCraftForesightPill` dynamic route preview, `Firebase AI Routing Dossier` bottom sheet, and Dialogue Card dynamic escalation badging with telemetry inspection modal | **4/4 PASSING** |
+| `client/test/mission_dossier_a2ui_game_moments_test.dart` | Milestone-to-dossier auto-completion, quest stage advancement objective synchronization, declarative A2UI Game Moment Card generation, `A2UISurfaceView` rendering with `Inspect Mission Dossier ➔`, and in-studio modal launch showing verified green checkmark | **5/5 PASSING** |
+| `client/test/mission_and_dynamic_cards_test.dart` | `GameMission` model integrity, immutable `copyWith`, `LoreCraftService` pre-dialogue guard, contact seeding, dynamic 3-card generation, Lyra water context handling, `LoreCraftMissionBriefingCard` widget rendering, radio selection, streamlined studio input layout, and studio deployment transitions | **11/11 PASSING** |
+| `client/test/lorecraft_switching_feature_test.dart` | `LoreCraftRouterDial` 3-mode stance toggle, `LoreCraftForesightPill` dynamic route preview, `Firebase AI Routing Dossier` bottom sheet with quick route benchmark probes, and Dialogue Card dynamic escalation badging with telemetry inspection modal | **4/4 PASSING** |
 | `client/test/lorecraft_studio_test.dart` | 3 factions, 3 NPCs, 3 regions, habitat shifts, reputation updates, memory bundle budget, rubric standards, and dialogue frame inspector | **12/12 PASSING** |
 | `client/test/quest_progression_test.dart` | Multi-stage dynamic quest tracks across all 3 NPCs, `hideTextIfGenerativeUi` flag toggling, and objective stage advancement | **6/6 PASSING** |
 | `client/test/switching_router_test.dart` | PII regex detection & scrubbing, context limit escalation, multi-hop reasoning, circuit breaker fallback, mode overrides | **7/7 PASSING** |

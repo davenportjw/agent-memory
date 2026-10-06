@@ -51,7 +51,7 @@ void main() {
       // Verify Hardware Telemetry
       expect(find.textContaining('BATTERY:'), findsWidgets);
       expect(find.textContaining('ONLINE'), findsWidgets);
-      expect(find.textContaining('Apple Silicon'), findsWidgets);
+      expect(find.textContaining(memoryService.environmentalState.hardwareEngine), findsWidgets);
       expect(find.textContaining('PASSED (< 4 KB)'), findsOneWidget);
 
       // Verify 4 Architecture Pattern Titles

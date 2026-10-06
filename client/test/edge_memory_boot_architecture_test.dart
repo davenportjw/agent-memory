@@ -37,7 +37,7 @@ void main() {
       expect(env.batteryLevel, 0.88);
       expect(env.networkStatus, 'ONLINE_WIFI');
       expect(env.currentSector, 'khar_drak_gates');
-      expect(env.hardwareEngine, contains('Apple Silicon'));
+      expect(env.hardwareEngine, anyOf(contains('Android LiteRT'), contains('Apple Silicon')));
     });
 
     test('Pattern 2: Conditionally (Just-In-Time Context) executes tool fetch and task-bound eviction', () async {

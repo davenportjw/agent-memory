@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 /// Local environmental and hardware state measured directly on edge device.
 class LocalEnvironmentalState {
@@ -50,6 +51,19 @@ class LocalEnvironmentalState {
     'sensor_ambient_noise_db': sensorAmbientNoiseDb,
   };
 
+  static String get defaultEngineForPlatform {
+    if (kIsWeb) return 'WebGPU Browser Engine (Gemma 4 int4)';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'Android LiteRT (Gemma 4 int4)';
+      case TargetPlatform.macOS:
+      case TargetPlatform.iOS:
+        return 'Apple Silicon M-Series WebGPU (Gemma 4 int4)';
+      default:
+        return 'Host Edge Runtime (Gemma 4 int4)';
+    }
+  }
+
   factory LocalEnvironmentalState.fromJson(Map<String, dynamic> json) =>
       LocalEnvironmentalState(
         batteryLevel: (json['battery_level'] as num?)?.toDouble() ?? 0.88,
@@ -57,19 +71,18 @@ class LocalEnvironmentalState {
         networkStatus: json['network_status'] as String? ?? 'ONLINE_WIFI',
         thermalState: json['thermal_state'] as String? ?? 'NOMINAL',
         currentSector: json['current_sector'] as String? ?? 'khar_drak_gates',
-        hardwareEngine: json['hardware_engine'] as String? ??
-            'Apple Silicon M-Series WebGPU (Gemma 4 int4)',
+        hardwareEngine: json['hardware_engine'] as String? ?? defaultEngineForPlatform,
         sensorAmbientNoiseDb:
             (json['sensor_ambient_noise_db'] as num?)?.toDouble() ?? 42.0,
       );
 
-  static LocalEnvironmentalState defaultState() => const LocalEnvironmentalState(
+  static LocalEnvironmentalState defaultState({String? hardwareEngine}) => LocalEnvironmentalState(
     batteryLevel: 0.88,
     isCharging: true,
     networkStatus: 'ONLINE_WIFI',
     thermalState: 'NOMINAL',
     currentSector: 'khar_drak_gates',
-    hardwareEngine: 'Apple Silicon M-Series WebGPU (Gemma 4 int4)',
+    hardwareEngine: hardwareEngine ?? defaultEngineForPlatform,
     sensorAmbientNoiseDb: 42.0,
   );
 }
@@ -152,11 +165,11 @@ class CorePersonaDirectives {
         allocatedTokens: json['allocated_tokens'] as int? ?? 256,
       );
 
-  static CorePersonaDirectives defaultDirectives() => const CorePersonaDirectives(
+  static CorePersonaDirectives defaultDirectives({String? hardwareProfile}) => CorePersonaDirectives(
     systemPromptId: 'prompt-khar-drak-envoy-v1',
-    hardwareProfile: 'Apple Silicon M-Series (LiteRT / WebGPU)',
+    hardwareProfile: hardwareProfile ?? LocalEnvironmentalState.defaultEngineForPlatform,
     personaName: 'Khar-Drak Grand Council Envoy',
-    staticDirectives: [
+    staticDirectives: const [
       'Maintain sub-60ms TTFT by bounding local generation to 3 concise sentences.',
       'Enforce zero cloud egress for tactical inquiries by checking local Master Index first.',
       'Drop injected task context immediately upon workflow completion to prevent RAM bloat.',

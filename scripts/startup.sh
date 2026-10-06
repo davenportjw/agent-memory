@@ -41,13 +41,23 @@ export ANDROID_HOME="${ANDROID_HOME:-${REAL_USER_HOME}/Library/Android/sdk}"
 export ANDROID_AVD_HOME="${REAL_USER_HOME}/.android/avd"
 export PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator:/usr/local/bin:/opt/homebrew/bin:${PATH}"
 
-# Auto-detect JAVA_HOME
-if [ -z "${JAVA_HOME:-}" ]; then
-    if [ -d "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home" ]; then
-        export JAVA_HOME="/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home"
+# Auto-detect & enforce Java 21/17 LTS (Gradle 8 & AGP do not support Java 25+)
+CURRENT_JAVA_MAJOR=""
+if [ -n "${JAVA_HOME:-}" ] && [ -x "${JAVA_HOME}/bin/java" ]; then
+    CURRENT_JAVA_MAJOR="$("${JAVA_HOME}/bin/java" -version 2>&1 | sed -E -n 's/.*version "([0-9]+).*/\1/p')"
+elif command -v java >/dev/null 2>&1; then
+    CURRENT_JAVA_MAJOR="$(java -version 2>&1 | sed -E -n 's/.*version "([0-9]+).*/\1/p')"
+fi
+
+if [ -z "${CURRENT_JAVA_MAJOR}" ] || [ "${CURRENT_JAVA_MAJOR}" -gt 21 ] 2>/dev/null; then
+    if [ -d "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home" ]; then
+        export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
     elif [ -d "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" ]; then
         export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
     fi
+fi
+if [ -n "${JAVA_HOME:-}" ]; then
+    export PATH="${JAVA_HOME}/bin:${PATH}"
 fi
 
 # Defaults
@@ -105,6 +115,7 @@ echo " ANTIGRAVITY DISTRIBUTED AI // RUNTIME STARTUP"
 echo " Working Root: ${ROOT_DIR}"
 echo " AVD Target:   ${AVD_NAME}"
 echo " Cloud Run:    ${CLOUD_BACKEND_URL}"
+echo " Java Home:    ${JAVA_HOME:-system default}"
 echo " Host Arch:    $(uname -m) (Apple Silicon)"
 echo "==========================================================="
 
@@ -185,6 +196,27 @@ fi
 
 # Step 6: Install and Launch APK
 echo ""
+echo "==> Verifying Android device/emulator connection..."
+DEVICE=$(adb devices 2>/dev/null | grep -E "emulator-[0-9]+" | awk '{print $1}' | head -n 1 || true)
+if [ -z "${DEVICE}" ]; then
+    echo "==> No active emulator detected in ADB table. Refreshing ADB server..."
+    adb kill-server >/dev/null 2>&1 || true
+    adb start-server >/dev/null 2>&1 || true
+    sleep 2
+    DEVICE=$(adb devices 2>/dev/null | grep -E "emulator-[0-9]+" | awk '{print $1}' | head -n 1 || true)
+fi
+
+if [ -z "${DEVICE}" ]; then
+    echo "⚠ Waiting for emulator to connect to ADB (adb wait-for-device)..."
+    adb wait-for-device
+fi
+
+echo "==> Waiting for Android OS boot completion..."
+while [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" != "1" ]; do
+    sleep 2
+done
+echo "✔ Emulator OS ready!"
+
 echo "==> Installing APK to emulator..."
 adb install -r "${APK_PATH}"
 

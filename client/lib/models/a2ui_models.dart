@@ -1,3 +1,5 @@
+import 'objective_milestone.dart';
+
 /// A2UI Protocol Data Models conforming to https://a2ui.org specification (v0.9+).
 ///
 /// Under A2UI, the host client statically defines the component catalog (`lorecraft_catalog.json`),
@@ -191,6 +193,9 @@ class A2UISurface {
     String? arbiterModelName,
     String? phaseBadge,
     bool isVictory = false,
+    ObjectiveMilestoneEvent? milestoneEvent,
+    String? completedObjectiveId,
+    String? completedObjectiveTitle,
   }) {
     final components = <A2UIComponent>[];
     final rootChildren = <String>[];
@@ -218,6 +223,88 @@ class A2UISurface {
           'text': gameMasterCommentary,
           'variant': 'body',
           'color': 'default',
+        },
+      ));
+    }
+
+    // 2. Game Moment: Strategic Milestone / Mission Objective Completion
+    if (milestoneEvent != null || (completedObjectiveTitle != null && completedObjectiveTitle.isNotEmpty)) {
+      final title = milestoneEvent?.title ?? completedObjectiveTitle!;
+      final desc = milestoneEvent?.description ??
+          'Strategic milestone confirmed. Mission Dossier tactical intelligence updated.';
+      final factionStr = milestoneEvent != null
+          ? 'Faction: ${milestoneEvent.faction} (${milestoneEvent.repDelta}) · Source: ${milestoneEvent.memorySource}'
+          : 'Mission Intelligence Updated · Strategic Campaign Priority';
+
+      rootChildren.add('milestone_card');
+      components.add(A2UIComponent(
+        id: 'milestone_card',
+        type: 'Card',
+        properties: {
+          'variant': isVictory ? 'cloud_accent' : 'edge_accent',
+          'padding': 10,
+        },
+        childrenIds: [
+          'milestone_badge',
+          'milestone_title',
+          'milestone_desc',
+          'milestone_meta',
+          'milestone_btn',
+        ],
+      ));
+
+      components.add(A2UIComponent(
+        id: 'milestone_badge',
+        type: 'Badge',
+        properties: {
+          'label': '🏆 STRATEGIC OBJECTIVE COMPLETED • MISSION DOSSIER UPDATED',
+          'tone': isVictory ? 'cloud' : 'edge',
+          'icon': 'shield',
+        },
+      ));
+
+      components.add(A2UIComponent(
+        id: 'milestone_title',
+        type: 'Text',
+        properties: {
+          'text': title,
+          'variant': 'subheading',
+          'color': 'default',
+        },
+      ));
+
+      components.add(A2UIComponent(
+        id: 'milestone_desc',
+        type: 'Text',
+        properties: {
+          'text': desc,
+          'variant': 'body',
+          'color': 'default',
+        },
+      ));
+
+      components.add(A2UIComponent(
+        id: 'milestone_meta',
+        type: 'Text',
+        properties: {
+          'text': factionStr,
+          'variant': 'caption',
+          'color': 'muted',
+        },
+      ));
+
+      components.add(A2UIComponent(
+        id: 'milestone_btn',
+        type: 'Button',
+        properties: {
+          'label': 'Inspect Mission Dossier ➔',
+          'actionId': 'open_dossier',
+          'intent': 'inspect_dossier',
+          'tone': isVictory ? 'cloud' : 'edge',
+          'payload': {
+            'objectiveId': completedObjectiveId ?? '',
+            'title': title,
+          },
         },
       ));
     }

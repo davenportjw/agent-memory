@@ -32,13 +32,23 @@ export ANDROID_HOME="${ANDROID_HOME:-${REAL_USER_HOME}/Library/Android/sdk}"
 export ANDROID_SDK_ROOT="${ANDROID_HOME}"
 CMDLINE_TOOLS_DIR="${ANDROID_HOME}/cmdline-tools/latest"
 
-# Auto-detect JAVA_HOME if unset
-if [ -z "${JAVA_HOME:-}" ]; then
-    if [ -d "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home" ]; then
-        export JAVA_HOME="/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home"
+# Auto-detect & enforce Java 21/17 LTS (Gradle 8 & AGP do not support Java 25+)
+CURRENT_JAVA_MAJOR=""
+if [ -n "${JAVA_HOME:-}" ] && [ -x "${JAVA_HOME}/bin/java" ]; then
+    CURRENT_JAVA_MAJOR="$("${JAVA_HOME}/bin/java" -version 2>&1 | sed -E -n 's/.*version "([0-9]+).*/\1/p')"
+elif command -v java >/dev/null 2>&1; then
+    CURRENT_JAVA_MAJOR="$(java -version 2>&1 | sed -E -n 's/.*version "([0-9]+).*/\1/p')"
+fi
+
+if [ -z "${CURRENT_JAVA_MAJOR}" ] || [ "${CURRENT_JAVA_MAJOR}" -gt 21 ] 2>/dev/null; then
+    if [ -d "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home" ]; then
+        export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
     elif [ -d "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" ]; then
         export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
     fi
+fi
+if [ -n "${JAVA_HOME:-}" ]; then
+    export PATH="${JAVA_HOME}/bin:${PATH}"
 fi
 
 echo "==========================================================="

@@ -150,10 +150,18 @@ void main() {
       expect(find.text('Target Execution Route'), findsOneWidget);
       expect(find.text('Triggered Policy Rule'), findsOneWidget);
       expect(find.text('Memory Destination'), findsOneWidget);
+      expect(find.text('QUICK ROUTE BENCHMARK PROBES'), findsOneWidget);
+      expect(find.text('Bark: Steel Billets'), findsOneWidget);
+      expect(find.text('Visual: Forge Aegis'), findsOneWidget);
+      expect(find.text('Escalate: Syndicate Seizure'), findsOneWidget);
 
-      await tester.tap(find.text('Close'));
+      // Tap 'Bark: Steel Billets' benchmark probe
+      await tester.tap(find.text('Bark: Steel Billets'));
       await tester.pumpAndSettle();
+
       expect(find.text('Firebase AI Routing Dossier'), findsNothing);
+      expect(textController.text, 'Inspect available high-carbon steel billets');
+      expect(find.textContaining('On-Device Gemma 4'), findsOneWidget);
     });
 
     testWidgets('LoreCraftDialogueCard: Escalated turn displays dynamic escalation badge with inspection', (tester) async {

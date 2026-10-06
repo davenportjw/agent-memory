@@ -411,6 +411,15 @@ class LoreCraftService extends ChangeNotifier {
       final nextStage = stages[progress.currentStageIndex];
       progress.sliderValue = nextStage.sliderValue;
     }
+
+    // Automatically complete sector objective in Mission Dossier if reaching Climax or Victory
+    if (progress.currentStageIndex >= stages.length - 2) {
+      final objectiveId = npcId == 'gideon'
+          ? 'obj-containment'
+          : (npcId == 'lyra' ? 'obj-aqueduct' : 'obj-resonance');
+      completeMissionObjective(objectiveId);
+    }
+
     notifyListeners();
   }
 
@@ -1021,6 +1030,9 @@ class LoreCraftService extends ChangeNotifier {
     String? arbiterModelName,
     String? phaseBadge,
     bool? isVictory,
+    ObjectiveMilestoneEvent? milestoneEvent,
+    String? completedObjectiveId,
+    String? completedObjectiveTitle,
   }) {
     final progress = getQuestProgress(npcId);
     final stages = getNpcQuestStages(npcId);
@@ -1051,6 +1063,9 @@ class LoreCraftService extends ChangeNotifier {
       arbiterModelName: arbiterModelName,
       phaseBadge: badge,
       isVictory: isFinalVictory,
+      milestoneEvent: milestoneEvent,
+      completedObjectiveId: completedObjectiveId,
+      completedObjectiveTitle: completedObjectiveTitle ?? milestoneEvent?.title,
     );
   }
 
@@ -1524,11 +1539,16 @@ Output format:
     final label = action.parameters['label'] as String? ?? '';
     AudioFeedbackService.instance.playClick();
 
+    if (action.actionId == 'open_dossier' || action.intent == 'inspect_dossier') {
+      return;
+    }
+
+    ObjectiveMilestoneEvent? milestone;
     if (choiceId != null) {
       final progress = getQuestProgress(activeNpc.id);
       progress.completedActionIds.add(choiceId);
       advanceQuestStage(activeNpc.id);
-      _evaluateObjectiveMilestone(choiceId: choiceId, label: label, npcId: activeNpc.id);
+      milestone = _evaluateObjectiveMilestone(choiceId: choiceId, label: label, npcId: activeNpc.id);
     }
 
     if (action.intent == 'visual_synthesis' || action.parameters['requiresCloud'] == true) {
@@ -1554,7 +1574,11 @@ Output format:
       final prompt = action.parameters['prompt'] as String? ??
           action.parameters['label'] as String? ?? '';
       if (prompt.isNotEmpty) {
-        await sendPlayerAction(prompt);
+        await sendPlayerAction(
+          prompt,
+          milestoneEvent: milestone,
+          completedObjectiveTitle: milestone?.title,
+        );
       }
     } else if (action.actionId == 'adjust_slider') {
       final val = (action.parameters['value'] as num?)?.toDouble() ?? 50.0;
@@ -1572,13 +1596,15 @@ Output format:
     }
   }
 
-  void _evaluateObjectiveMilestone({required String choiceId, required String label, required String npcId}) {
+  ObjectiveMilestoneEvent? _evaluateObjectiveMilestone({required String choiceId, required String label, required String npcId}) {
     final lowerLabel = label.toLowerCase();
     final lowerId = choiceId.toLowerCase();
 
     ObjectiveMilestoneEvent? milestone;
+    String? targetObjectiveId;
 
-    if (lowerId.contains('cipher') || lowerLabel.contains('cipher') || lowerLabel.contains('valve')) {
+    if (lowerId.contains('cipher') || lowerLabel.contains('cipher') || lowerLabel.contains('valve') || lowerId.contains('sluice') || lowerLabel.contains('flume')) {
+      targetObjectiveId = 'obj-aqueduct';
       milestone = ObjectiveMilestoneEvent(
         id: 'milestone-${DateTime.now().millisecondsSinceEpoch}',
         title: 'Aqueduct Valve Ciphers Secured',
@@ -1590,7 +1616,8 @@ Output format:
         timestamp: DateTime.now(),
       );
       adjustReputation('syndicate', 4);
-    } else if (lowerId.contains('keystone') || lowerLabel.contains('harmonic') || lowerLabel.contains('crystal')) {
+    } else if (lowerId.contains('keystone') || lowerLabel.contains('harmonic') || lowerLabel.contains('crystal') || lowerId.contains('leyline') || lowerLabel.contains('leyline')) {
+      targetObjectiveId = 'obj-resonance';
       milestone = ObjectiveMilestoneEvent(
         id: 'milestone-${DateTime.now().millisecondsSinceEpoch}',
         title: 'Keystone Spire Leyline Attuned',
@@ -1603,6 +1630,7 @@ Output format:
       );
       adjustReputation('enclave', 4);
     } else if (lowerId.contains('surveillance') || lowerLabel.contains('dampener') || lowerLabel.contains('shunt')) {
+      targetObjectiveId = 'obj-aqueduct';
       milestone = ObjectiveMilestoneEvent(
         id: 'milestone-${DateTime.now().millisecondsSinceEpoch}',
         title: 'Acoustic Surveillance Dampened',
@@ -1614,7 +1642,8 @@ Output format:
         timestamp: DateTime.now(),
       );
       adjustReputation('syndicate', 4);
-    } else if (lowerId.contains('relief') || lowerLabel.contains('foundry') || lowerLabel.contains('blast')) {
+    } else if (lowerId.contains('relief') || lowerLabel.contains('foundry') || lowerLabel.contains('blast') || lowerId.contains('slag') || lowerLabel.contains('slag')) {
+      targetObjectiveId = 'obj-containment';
       milestone = ObjectiveMilestoneEvent(
         id: 'milestone-${DateTime.now().millisecondsSinceEpoch}',
         title: 'Foundry Slag Containment Reinforced',
@@ -1628,9 +1657,15 @@ Output format:
       adjustReputation('vanguard', 4);
     }
 
+    if (targetObjectiveId != null) {
+      completeMissionObjective(targetObjectiveId);
+    }
+
     if (milestone != null) {
       triggerMilestone(milestone);
     }
+
+    return milestone;
   }
 
   /// Two-Step Cloud Visual Synthesis & Local Model Turn Pipeline:
@@ -1839,11 +1874,17 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
                 final stages = getNpcQuestStages(npc.id);
                 final progress = getQuestProgress(npc.id);
                 final isVictory = progress.currentStageIndex >= stages.length - 1;
+                final sectorObjId = npc.id == 'gideon'
+                    ? 'obj-containment'
+                    : (npc.id == 'lyra' ? 'obj-aqueduct' : 'obj-resonance');
+                if (assessment.isObjectiveCompleted || isVictory) {
+                  completeMissionObjective(sectorObjId);
+                }
                 turns[idx] = turns[idx].copyWith(
                   personaModelName: telemetry.modelName,
                   arbiterModelName: assessment.arbiterModelName,
                   gameMasterCommentary: assessment.commentary,
-                  isObjectiveCompleted: assessment.isObjectiveCompleted,
+                  isObjectiveCompleted: assessment.isObjectiveCompleted || isVictory,
                   a2uiSurface: generateNpcProactiveSurface(
                     npc.id,
                     customCue: turns[idx].stageCue,
@@ -1853,6 +1894,8 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
                     arbiterModelName: assessment.arbiterModelName,
                     phaseBadge: isVictory ? 'MISSION VICTORY' : 'STAGE ${progress.currentStageIndex + 1} OF ${stages.length}',
                     isVictory: isVictory,
+                    completedObjectiveId: (assessment.isObjectiveCompleted || isVictory) ? sectorObjId : null,
+                    completedObjectiveTitle: (assessment.isObjectiveCompleted || isVictory) ? currentQuestGoal : null,
                   ),
                 );
                 notifyListeners();
@@ -2053,8 +2096,30 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
     }
   }
 
-  Future<void> sendPlayerAction(String prompt) async {
+  Future<void> sendPlayerAction(
+    String prompt, {
+    ObjectiveMilestoneEvent? milestoneEvent,
+    String? completedObjectiveId,
+    String? completedObjectiveTitle,
+  }) async {
     if (prompt.trim().isEmpty || isExecuting) return;
+
+    ObjectiveMilestoneEvent? activeMilestone = milestoneEvent;
+    String? activeCompletedId = completedObjectiveId;
+    String? activeCompletedTitle = completedObjectiveTitle;
+
+    // Check if player action spontaneously triggered a milestone
+    if (activeMilestone == null) {
+      final evaluated = _evaluateObjectiveMilestone(
+        choiceId: 'chat_prompt',
+        label: prompt,
+        npcId: activeNpc.id,
+      );
+      if (evaluated != null) {
+        activeMilestone = evaluated;
+        activeCompletedTitle = evaluated.title;
+      }
+    }
 
     final playerTurn = LoreDialogueTurn(
       id: 'player-${DateTime.now().millisecondsSinceEpoch}',
@@ -2246,12 +2311,23 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
       final progress = getQuestProgress(activeNpc.id);
       progress.sliderValue = (progress.sliderValue + assessment.readinessDelta).clamp(0.0, 100.0);
 
+      final sectorObjId = activeNpc.id == 'gideon'
+          ? 'obj-containment'
+          : (activeNpc.id == 'lyra' ? 'obj-aqueduct' : 'obj-resonance');
+
       if (assessment.isObjectiveCompleted || progress.sliderValue >= 100.0) {
         advanceQuestStage(activeNpc.id);
+        completeMissionObjective(sectorObjId);
+        activeCompletedId ??= sectorObjId;
+        activeCompletedTitle ??= currentQuestGoal;
       }
 
       final stages = getNpcQuestStages(activeNpc.id);
       final isVictory = progress.currentStageIndex >= stages.length - 1;
+      if (isVictory) {
+        completeMissionObjective(sectorObjId);
+      }
+
       final proactiveSurface = generateNpcProactiveSurface(
         activeNpc.id,
         customCue: effectiveStageCue,
@@ -2261,6 +2337,9 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
         arbiterModelName: assessment.arbiterModelName,
         phaseBadge: isVictory ? 'MISSION VICTORY' : 'STAGE ${progress.currentStageIndex + 1} OF ${stages.length}',
         isVictory: isVictory,
+        milestoneEvent: activeMilestone,
+        completedObjectiveId: activeCompletedId,
+        completedObjectiveTitle: activeCompletedTitle,
       );
 
       final turnIndex = turns.indexWhere((t) => t.id == responseTurnId);
@@ -2276,7 +2355,7 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
           personaModelName: activePersonaEngine,
           arbiterModelName: assessment.arbiterModelName,
           gameMasterCommentary: assessment.commentary,
-          isObjectiveCompleted: assessment.isObjectiveCompleted,
+          isObjectiveCompleted: assessment.isObjectiveCompleted || activeMilestone != null || isVictory,
           a2uiSurface: proactiveSurface,
         );
       }

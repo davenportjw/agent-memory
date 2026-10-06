@@ -8,6 +8,7 @@ import '../lib/services/local_execution_manager.dart';
 import '../lib/services/cloud_sse_client.dart';
 import '../lib/services/local_memory_service.dart';
 import '../lib/views/widgets/lorecraft_mission_briefing_card.dart';
+import '../lib/views/widgets/lorecraft_foresight_pill.dart';
 import '../lib/views/lorecraft_boot_page_view.dart';
 import '../lib/views/lorecraft_studio.dart';
 
@@ -249,6 +250,11 @@ void main() {
       expect(find.text('BOOT SEQUENCE'), findsOneWidget);
       expect(find.text('STAGE 1/5'), findsOneWidget);
       expect(service.turns.first.speechText, contains('Aether-Core beneath the Foundry is cracking'));
+
+      // Verify that vestigial static prompt bar is absent and input area is streamlined
+      expect(find.text('QUICK ACTION DIALOGUE PROMPTS'), findsNothing);
+      expect(find.byType(LoreCraftForesightPill), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
 
       // Tapping "MISSION DOSSIER" opens the dossier modal
       await tester.tap(find.byKey(const Key('btn_mission_dossier')));

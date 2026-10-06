@@ -1,5 +1,12 @@
 package com.example.client
 
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.BatteryManager
+import android.os.Build
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -17,6 +24,50 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "getDeviceTelemetry" -> {
+                    try {
+                        // 1. Real Battery Telemetry from Android OS
+                        val batteryIntent = context.registerReceiver(
+                            null,
+                            IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+                        )
+                        val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                        val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+                        val batteryLevel = if (level >= 0 && scale > 0) (level.toDouble() / scale.toDouble()) else 1.0
+
+                        val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+                        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                                         status == BatteryManager.BATTERY_STATUS_FULL
+
+                        // 2. Real Network Telemetry from ConnectivityManager
+                        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                        val activeNetwork = connectivityManager?.activeNetwork
+                        val capabilities = connectivityManager?.getNetworkCapabilities(activeNetwork)
+                        val networkStatus = when {
+                            capabilities == null -> "OFFLINE_AIRGAPPED"
+                            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "ONLINE_WIFI"
+                            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "ONLINE_CELLULAR"
+                            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ONLINE_ETHERNET"
+                            else -> "OFFLINE_AIRGAPPED"
+                        }
+
+                        // 3. Real Hardware Engine from Android Build Info
+                        val manufacturer = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+                        val model = Build.MODEL
+                        val hardware = Build.HARDWARE
+                        val engine = "Android $manufacturer $model ($hardware) LiteRT"
+
+                        result.success(mapOf(
+                            "batteryLevel" to batteryLevel,
+                            "isCharging" to isCharging,
+                            "networkStatus" to networkStatus,
+                            "hardwareEngine" to engine,
+                            "isLiteRTLoaded" to isModelLoaded
+                        ))
+                    } catch (e: Exception) {
+                        result.error("TELEMETRY_ERROR", "Failed to query Android device telemetry: ${e.message}", null)
+                    }
+                }
                 "checkModelStatus" -> {
                     val defaultAvdPath = "/data/local/tmp/gemma-4-2b-it-int4.bin"
                     val legacyAvdPath = "/data/local/tmp/gemma-2b-it-int4.bin"

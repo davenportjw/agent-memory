@@ -839,7 +839,11 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
               return LoreCraftDialogueCard(
                 turn: s.turns[idx],
                 onA2UIAction: (action) {
-                  s.handleA2UIAction(action);
+                  if (action.actionId == 'open_dossier' || action.intent == 'inspect_dossier') {
+                    _showMissionDossierDialog(context);
+                  } else {
+                    s.handleA2UIAction(action);
+                  }
                 },
                 isCloudGenerating: s.isCloudImageGenerating,
                 cloudGeneratingStatus: s.cloudImageStatus,
@@ -849,42 +853,6 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
           ),
         ),
 
-        // Quick Action Grounded Prompts
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
-          decoration: const BoxDecoration(
-            color: SepiaTheme.paper,
-            border: Border(top: BorderSide(color: SepiaTheme.border, width: 1.0)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'QUICK ACTION DIALOGUE PROMPTS',
-                style: SepiaTheme.sans(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.8, color: SepiaTheme.inkMuted),
-              ),
-              const SizedBox(height: 6),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildPromptChip("Inspect available high-carbon steel billets", "Gemma 4 Edge (50ms)"),
-                    const SizedBox(width: 6),
-                    _buildPromptChip("Generate concept art of the Forge Commander's Aegis", "Nano Banana 2 Lite (~1.2s)", isVisual: true),
-                    const SizedBox(width: 6),
-                    _buildPromptChip("Ask about smuggled grain manifests in the lower docks", "Gemma 4 Edge (50ms)"),
-                    const SizedBox(width: 6),
-                    _buildPromptChip("Synthesize star astrolabe blueprints for the spire", "Nano Banana 2 Lite (~1.2s)", isVisual: true),
-                    const SizedBox(width: 6),
-                    _buildPromptChip("Report an intercepted Syndicate courier to the Vanguard", "Cloud Flash (Faction Shift)"),
-                    const SizedBox(width: 6),
-                    _buildPromptChip("Synthesize the political consequences if the Syndicate seizes the docks", "Cloud Flash (Multi-hop)"),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
 
         // Input Box
         Container(
@@ -1071,52 +1039,6 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
     );
   }
 
-  Widget _buildPromptChip(String prompt, String targetTag, {bool isVisual = false}) {
-    final isCloudVisual = isVisual || targetTag.contains('Nano Banana');
-    final isEdge = targetTag.contains('Edge');
-
-    final tagColor = isCloudVisual
-        ? SepiaTheme.azure
-        : (isEdge ? SepiaTheme.sage : SepiaTheme.amber);
-    final tagBg = isCloudVisual
-        ? SepiaTheme.azureBg
-        : (isEdge ? SepiaTheme.sageBg : SepiaTheme.amberBg);
-
-    return InkWell(
-      onTap: () => _handleSend(prompt),
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: SepiaTheme.paperSubtle,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: isCloudVisual ? SepiaTheme.azureBorder : SepiaTheme.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(prompt, style: SepiaTheme.sans(fontSize: 11, color: SepiaTheme.ink)),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: tagBg,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                targetTag,
-                style: SepiaTheme.sans(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  color: tagColor,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildMemoryBudgetMeter(LoreCraftService s) {
     final bytes = s.worldBundleSizeBytes;
