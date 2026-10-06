@@ -144,7 +144,12 @@ When the edge agent spins up, it loads only the absolute minimum context require
 
 ### 2. Conditionally (Just-In-Time Context)
 The vast majority of semantic memory is paged in on demand:
-- **Tool-Triggered Fetching**: When user prompts require historical lore or domain rules, the edge agent checks its Master Index and executes `fetch_memory_topic(topic_id)` to pull the specific payload.
+- **Tool-Triggered Fetching & Bi-directional Caching**: When user prompts require historical lore or domain rules, the edge agent checks its Master Index and executes `fetch_memory_topic(topic_id)` to pull the specific payload into edge memory.
+  - **On-Demand Uncaching / Eviction**: Topics cached in local RAM can be freely unclicked or evicted via the UI:
+    - **Chip Toggle / Unclick**: Clicking an active `(CACHED LOCALLY)` chip toggles its cached state, invoking `evictMemoryTopic(topicId)` to unload it from edge memory and reclaim RAM.
+    - **Chip Delete Affordance (`[✕]`)**: Each cached chip exposes a discrete delete affordance (`onDeleted`) for explicit one-tap removal.
+    - **Card-Level Eviction (`[EVICT FROM CACHE]`)**: When previewing paged context, a dedicated eviction button unloads the active topic and clears the preview pane.
+    - **Global Purge (`[CLEAR ALL CACHED]`)**: In the section header, players can evict all cached topics at once via `evictAllLocalTopics()`, returning local edge memory strictly to base directives.
 - **Task-Bound Context Windows**: Injected topics expand the context window only during the active workflow. Upon task completion, injected topics are immediately evicted, returning edge memory footprint to base directives.
 
 ### 3. Pre-Emptive Caching (The Predictive Load & Scene Eviction)
