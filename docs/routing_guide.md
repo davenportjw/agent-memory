@@ -119,3 +119,13 @@ The LoreCraft Studio game interface provides transparent, real-time exposure to 
   - **Android**: Binds to Kotlin `MethodChannel("com.example.client/gemma_edge")`, checks `/data/local/tmp/gemma-4-2b-it-int4.bin`, and provides ADB copy instructions when uninitialized (`adb push gemma-4-2b-it-int4.bin /data/local/tmp/gemma-4-2b-it-int4.bin`).
 - **Uninitialized State Handling**: Calling on-device inference without loaded weights raises a `StateError` or gracefully triggers the dynamic cloud fallback route with full transparency.
 
+---
+
+## 7. Related Documentation
+- [System Architecture](architecture.md): Distributed edge-to-cloud architecture specification.
+- [Model Matrix & Hardware Boundaries](model_matrix.md): Latency and hardware execution specifications.
+- [Memory Pipeline Specification](memory_pipeline.md): Online/offline memory ingestion loops.
+- [LLM-as-a-Rater Guide](eval_rater_guide.md): Automated evaluation benchmarks.
+- [LoreCraft Dynamic Gameplay](lorecraft_dynamic_gameplay.md): LoreCraft studio switching UI and dynamic 3-card synthesis.
+
+

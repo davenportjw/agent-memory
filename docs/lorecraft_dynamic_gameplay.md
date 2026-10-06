@@ -236,3 +236,13 @@ Continuous verification is maintained across both unit and widget integration te
 | `client/test/a2ui_rendering_test.dart` | Proactive choice tags, visual canvas with Nano Banana 2 Lite telemetry, two-step visual-to-local pipeline, embedded markdown JSON choices extraction, raw JSON code fence stripping, full declarative A2UI JSON parsing, and `hideTextIfGenerativeUi` focus mode | **9/9 PASSING** |
 | `client/test/eval_rater_test.dart` | Model comparison matrix, automated eval rater scoring, and rubric standards | **4/4 PASSING** |
 | `server/tests/` | Cloud Run backend, Gemini 3.8 Flash escalation routes, SSE transport | **PASSING** |
+
+---
+
+## 8. Related Documentation
+- [System Architecture](architecture.md): High-level edge-to-cloud topology.
+- [Routing Guide](routing_guide.md): Dynamic switching policies, Foresight Pill, and Router Dial controls.
+- [Memory Pipeline Specification](memory_pipeline.md): Envoy 4-phase memory boot flow and SQLite local storage.
+- [Model Matrix & Hardware Boundaries](model_matrix.md): Execution performance and two-step orchestration protocol.
+- [UI/UX Style & Affordances](ui_style_guide.md): Sepia design system standards and A2UI surface rendering.
+

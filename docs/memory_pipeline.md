@@ -192,3 +192,12 @@ Player dialogue choices dynamically unlock tactical objectives and trigger senso
   - *Evict Pulse*: Low resonant pulse when task-bound context is purged from memory.
   - *Milestone Fanfare*: Uplifting cue upon objective achievement.
   - *Global Sound Toggle (`btn_toggle_sound`)*: Complete mute control across the entire edge runtime.
+
+---
+
+## 7. Related Documentation
+- [System Architecture](architecture.md): Distributed edge-to-cloud topology.
+- [Model Matrix & Hardware Boundaries](model_matrix.md): Local RAM constraints and execution engines.
+- [Routing Guide](routing_guide.md): Dynamic switching policies and PII redaction boundaries.
+- [LoreCraft Dynamic Gameplay](lorecraft_dynamic_gameplay.md): Game engine integration and mission progression.
+

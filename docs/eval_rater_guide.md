@@ -34,11 +34,19 @@ The Model Test Bench allows operators to submit a single custom prompt (or canon
 ## 4. Multi-Scenario Test Harness
 Automated verification across operational scenarios is implemented in:
 - [`client/test/model_test_bench_test.dart`](../client/test/model_test_bench_test.dart): Verifies single prompt execution across all 4 model combinations, checks that radar charts are strictly absent, verifies composite ratings, and inspects rubric modal sheets.
-- [`client/test/all_tests.dart`](../client/test/all_tests.dart): Comprehensive 65-test suite running across edge bundling, contradiction resolution, switching router, markdown formatting, and LLM rater.
+- [`client/test/all_tests.dart`](../client/test/all_tests.dart): Comprehensive 11-suite test runner covering edge bundling, contradiction resolution, switching router, markdown formatting, local execution, and LLM rater.
 - [`server/tests/scenario_evaluation_test.go`](../server/tests/scenario_evaluation_test.go): Backend rater verification across edge-local PII sanitization, schema compliance, cross-session synthesis, and circuit breaker trip handling.
 Run via:
 ```bash
-../scripts/flutter test test/model_test_bench_test.dart
-../scripts/flutter test test/all_tests.dart
-go test -v ./server/tests -run TestScenarioPromptsWithRater
+cd client && ../scripts/flutter test test/model_test_bench_test.dart
+cd client && ../scripts/flutter test test/all_tests.dart
+cd server && go test -v ./tests -run TestScenarioPromptsWithRater
 ```
+
+---
+
+## 5. Related Documentation
+- [Model Matrix & Hardware Boundaries](model_matrix.md): Latency benchmarks and candidate model specifications.
+- [Routing Guide](routing_guide.md): Policy rules determining edge vs cloud evaluation paths.
+- [Walkthrough & Runbook](walkthrough.md): Empirical test output dumps and verification steps.
+

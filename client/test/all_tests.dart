@@ -64,7 +64,7 @@ class TestRunner {
 
 void main() {
   ft.test(
-    'Antigravity Client Test Suite: All tests across 9 suites',
+    'Antigravity Client Test Suite: All tests across 11 suites',
     timeout: const ft.Timeout(Duration(minutes: 2)),
     () async {
       final runner = TestRunner();
@@ -74,31 +74,31 @@ void main() {
       stdout.writeln(' ANTIGRAVITY DISTRIBUTED AI CLIENT // TEST SUITE');
       stdout.writeln('===========================================================');
 
-      runner.currentSuite = '[1/9] SWITCHING ROUTER & PII TESTS:';
+      runner.currentSuite = '[1/11] SWITCHING ROUTER & PII TESTS:';
       runSwitchingRouterTests(runner.register, runner.expect);
 
-      runner.currentSuite = '[2/9] MEMORY PIPELINE TESTS:';
+      runner.currentSuite = '[2/11] MEMORY PIPELINE TESTS:';
       runMemoryPipelineTests(runner.register, runner.expect);
 
-      runner.currentSuite = '[3/9] CONTRADICTION RESOLUTION & AFFORDANCE TESTS:';
+      runner.currentSuite = '[3/11] CONTRADICTION RESOLUTION & AFFORDANCE TESTS:';
       runContradictionResolutionTests(runner.register, runner.expect);
 
-      runner.currentSuite = '[4/9] COMPACT EDGE BUNDLE TESTS:';
+      runner.currentSuite = '[4/11] COMPACT EDGE BUNDLE TESTS:';
       runEdgeBundleTests(runner.register, runner.expect);
 
-      runner.currentSuite = '[5/9] LLM-AS-A-RATER EVALUATION TESTS:';
+      runner.currentSuite = '[5/11] LLM-AS-A-RATER EVALUATION TESTS:';
       runEvalRaterTests(runner.register, runner.expect);
 
-      runner.currentSuite = '[6/9] GEMMA 4 EDGE ENGINE TESTS:';
+      runner.currentSuite = '[6/11] GEMMA 4 EDGE ENGINE TESTS:';
       runGemmaEdgeTests(runner.register, runner.expect);
 
-      runner.currentSuite = '[7/9] LOCAL EXECUTION MANAGER & CHROME PROMPT API TESTS:';
+      runner.currentSuite = '[7/11] LOCAL EXECUTION MANAGER & CHROME PROMPT API TESTS:';
       runLocalExecutionTests(runner.register, runner.expect);
 
-      runner.currentSuite = '[8/9] LIVE CLOUD RUN INTEGRATION & SWITCHING TESTS:';
+      runner.currentSuite = '[8/11] LIVE CLOUD RUN INTEGRATION & SWITCHING TESTS:';
       runLiveCloudSwitchingTests(runner.register, runner.expect);
 
-      runner.currentSuite = '[9/10] MARKDOWN FORMATTING & PARSING TESTS:';
+      runner.currentSuite = '[9/11] MARKDOWN FORMATTING & PARSING TESTS:';
       runMarkdownFormattingTests(runner.register, runner.expect);
 
       runner.currentSuite = '[10/11] MEMORY NOTEBOOK & PATTERN SIMULATOR TESTS:';
@@ -131,7 +131,7 @@ void main() {
       stdout.writeln('===========================================================');
     }
 
-    ft.expect(runner.failed, 0, reason: 'All unit & integration tests across 10 suites must pass');
+    ft.expect(runner.failed, 0, reason: 'All unit & integration tests across 11 suites must pass');
   });
 }
 

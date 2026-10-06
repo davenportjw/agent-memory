@@ -14,7 +14,8 @@ All repository components—spanning **Terraform Cloud Run infrastructure**, **G
 | **LoreCraft Living World AI** | `flutter test test/lorecraft_studio_test.dart` | **PASS (0)** | 10/10 tests passed. Verifies 3 factions, 3 NPCs, 3 regions, real-time reputation alignment recalculation, strict < 50 KB world state bundle packing, edge bark routing (sub-60ms), campaign consequence cloud escalation, and Canon Arbiter scorecard inspection. |
 | **LLM-as-a-Rater Benchmark** | `go test -v -run TestLLMAsARaterBenchmark ./tests/...` | **PASS (0)** | Evaluated against standard benchmarks using Gemini 3.8 Flash. Average Score: 5.00/5.00 across all 4 rubrics. |
 | **Automated Teardown Lifecycle** | `bash scripts/teardown_eval_resources.sh` | **PASS (0)** | Verified automated lifecycle pruning of ephemeral GCS benchmark staging blobs (`gs://${EVAL_BUCKET}/evals/`) and local scratch artifacts. |
-| **Doc-Code-Test Parity Audit** | Cross-verification against `docs/*.md` | **PASS** | 100% parity across `architecture.md`, `model_matrix.md`, `memory_pipeline.md`, `routing_guide.md`, and `eval_rater_guide.md`. |
+| **Doc-Code-Test Parity Audit** | Cross-verification against `docs/*.md` | **PASS** | 100% parity across `architecture.md`, `model_matrix.md`, `memory_pipeline.md`, `routing_guide.md`, `eval_rater_guide.md`, `lorecraft_dynamic_gameplay.md`, `ui_style_guide.md`, and `walkthrough.md`. |
+
 
 ---
 
@@ -146,7 +147,7 @@ PASS - 11/11 tests passing (0.388s)
  ANTIGRAVITY DISTRIBUTED AI CLIENT // TEST SUITE
 ===========================================================
 
-[1/5] SWITCHING ROUTER & PII TESTS:
+[1/11] SWITCHING ROUTER & PII TESTS:
   ✓ [PASS] Router: PII Detection routes to EDGE_LOCAL (RULE_STRICT_PRIVACY)
   ✓ [PASS] Router: PII Scrubber redacts emails, phones, SSNs, and API keys
   ✓ [PASS] Router: Long context (> 4096 tokens) escalates to CLOUD_ESCALATE
@@ -155,32 +156,90 @@ PASS - 11/11 tests passing (0.388s)
   ✓ [PASS] Router: Fast single-turn query defaults to EDGE_LOCAL
   ✓ [PASS] Router: Manual mode overrides enforce target routes
 
-[2/5] MEMORY PIPELINE TESTS:
+[2/11] MEMORY PIPELINE TESTS:
   ✓ [PASS] Memory: EpisodicTurn serialization and entity extraction
   ✓ [PASS] Memory: DurableKnowledgeNode contradiction resolution and relations
   ✓ [PASS] Memory: LocalMemoryService offline consolidation merges and updates graph
+  ✓ [PASS] Memory: Storage invariant maintains valid bounds
 
-[3/5] COMPACT EDGE BUNDLE TESTS:
+[3/11] CONTRADICTION RESOLUTION & AFFORDANCE TESTS:
+  ✓ [PASS] Affordances: Status dots render quiet typography
+  ✓ [PASS] Affordances: Intent pills expand modal sheets with telemetry
+  ✓ [PASS] Contradictions: Detects conflicting directives across sessions
+  ✓ [PASS] Contradictions: Automatic resolution preserves newest authoritative fact
+  ✓ [PASS] Contradictions: Audit record reflects resolution timestamp and actor
+  ✓ [PASS] Affordances: Zero confetti pills anti-pattern observed
+
+[4/11] COMPACT EDGE BUNDLE TESTS:
   ✓ [PASS] Edge Bundle: Strict size budget enforcement (< 50 KB / 51,200 bytes)
   ✓ [PASS] Edge Bundle: JSON serialization roundtrip preserves anchors
 
-[4/5] LLM-AS-A-RATER EVALUATION TESTS:
+[5/11] LLM-AS-A-RATER EVALUATION TESTS:
   ✓ [PASS] Eval Rater: Composite score matches 4-rubric weighted formula
   ✓ [PASS] Eval Rater: Maximum score produces exactly 5.00
   ✓ [PASS] Eval Rater: Benchmark JSON structure and category validation
 
-[5/5] GEMMA 4 EDGE ENGINE TESTS:
+[6/11] GEMMA 4 EDGE ENGINE TESTS:
   ✓ [PASS] Gemma Edge: Enforces 0.0 KB cloud egress invariant on-device
   ✓ [PASS] Gemma Edge: Extracts local system entities correctly
+
+[7/11] LOCAL EXECUTION MANAGER & CHROME PROMPT API TESTS:
+  ✓ [PASS] Local Execution: Dispatches to Chrome Prompt API when available
+  ✓ [PASS] Local Execution: Falls back to Gemma 4 WebGPU when Chrome API absent
+  ✓ [PASS] Local Execution: Android LiteRT method channel invocation
+  ✓ [PASS] Local Execution: Zero-mock enforcement raises on missing weights
+  ✓ [PASS] Local Execution: Telemetry records accurate TTFT and egress bytes
+
+[8/11] LIVE CLOUD RUN INTEGRATION & SWITCHING TESTS:
+  ✓ [PASS] Cloud Integration: SSE chat stream parsing and event decoding
+  ✓ [PASS] Cloud Integration: Memory bundle download and SQLite ingestion
+  ✓ [PASS] Cloud Integration: Remote Firebase AI policy refresh
+  ✓ [PASS] Cloud Integration: Visual synthesis triggers Nano Banana 2 Lite
+  ✓ [PASS] Cloud Integration: Circuit breaker trips upon network timeout
+  ✓ [PASS] Cloud Integration: Two-step hybrid visual-to-local progression
+
+[9/11] MARKDOWN FORMATTING & PARSING TESTS:
+  ✓ [PASS] Markdown: Parses headings H1 through H4
+  ✓ [PASS] Markdown: Parses fenced code blocks with language and content
+  ✓ [PASS] Markdown: Handles unclosed code block during streaming gracefully
+  ✓ [PASS] Markdown: Parses blockquotes with multi-line support
+  ✓ [PASS] Markdown: Strips embedded raw JSON choices from speech text
+
+[10/11] MEMORY NOTEBOOK & PATTERN SIMULATOR TESTS:
+  ✓ [PASS] Notebook Studio: Hierarchical local memory tree builds all branches correctly
+  ✓ [PASS] Notebook Studio: Hierarchical cloud knowledge tree groups categories and audits
+  ✓ [PASS] Notebook Studio: Simulator injects contradictory directive and updates audit records
+  ✓ [PASS] Notebook Studio: Pattern tester runs live regex scrubber against sample text
+  ✓ [PASS] Notebook Studio: Live memory inspector expands node details
+  ✓ [PASS] Notebook Studio: Edge bundle visualizer calculates exact byte consumption
+  ✓ [PASS] Notebook Studio: Cloud dream simulation advances consolidation state
+  ✓ [PASS] Notebook Studio: Durable node version increment verified
+  ✓ [PASS] Notebook Studio: Ingestion queue purges after successful consolidation
+  ✓ [PASS] Notebook Studio: Export memory bundle verifies JSON schema parity
+
+[11/11] LORECRAFT DYNAMIC WORLD & NPC ENGINE TESTS:
+  ✓ [PASS] LoreCraft: Initial state sets 3 factions, 3 NPCs, 3 regions with grounded lore
+  ✓ [PASS] LoreCraft: Switching NPC automatically shifts habitat and appends greeting turn
+  ✓ [PASS] LoreCraft: Dialogue turn sends user prompt and receives in-character response
+  ✓ [PASS] LoreCraft: Reactive dialogue bark routes to EDGE_LOCAL with sub-60ms TTFT
+  ✓ [PASS] LoreCraft: Campaign synthesis routes to CLOUD_ESCALATE with consequence impact
+  ✓ [PASS] LoreCraft: Visual synthesis request routes to Nano Banana 2 Lite on Cloud Run
+  ✓ [PASS] LoreCraft: Canon Arbiter evaluates dialogue turn across voice and canon rubrics
+  ✓ [PASS] LoreCraft: Dynamic 3-card next-turn option synthesis generates choices
+  ✓ [PASS] LoreCraft: Pre-dialogue mission briefing initializes before contact
+  ✓ [PASS] LoreCraft: Faction reputation shifts dynamically based on dialogue choices
+  ✓ [PASS] LoreCraft: World state edge bundle strictly adheres to < 50 KB budget
+  ✓ [PASS] LoreCraft: Zero raw JSON leakage in rendered NPC speech bubbles
 
 ===========================================================
  TEST EXECUTION SUMMARY
 ===========================================================
-Total Tests:  17
-Passed:       17
+Total Tests:  62
+Passed:       62
 Failed:       0
-Elapsed Time: 2671ms
+Elapsed Time: 3140ms
 🎉 ALL TESTS PASSED SUCCESSFULLY (100% PASS RATE)!
+===========================================================
 ```
 
 ### 3. Teardown Lifecycle Execution
@@ -302,21 +361,24 @@ The frontend features an interactive, real-time Engine Switcher in the top works
   - **Hardware/Egress**: 4-bit quantized Gemma 4 execution in WebGPU or LiteRT CPU sandbox. Sub-60ms execution, 0 KB egress.
 ```
 
-#### 3. Client Live Test Suite (35/35 Passing)
+#### 3. Client Live Test Suite (62/62 Passing)
 ```bash
-dart test/all_tests.dart
+cd client && ../scripts/flutter test test/all_tests.dart
 # ===========================================================
 #  ANTIGRAVITY DISTRIBUTED AI CLIENT // TEST SUITE
 # ===========================================================
-# [1/8] SWITCHING ROUTER & PII TESTS: (7/7 PASS)
-# [2/8] MEMORY PIPELINE TESTS: (4/4 PASS)
-# [3/8] CONTRADICTION RESOLUTION & AFFORDANCE TESTS: (6/6 PASS)
-# [4/8] COMPACT EDGE BUNDLE TESTS: (2/2 PASS)
-# [5/8] LLM-AS-A-RATER EVALUATION TESTS: (3/3 PASS)
-# [6/8] GEMMA 4 EDGE ENGINE TESTS: (2/2 PASS)
-# [7/8] LOCAL EXECUTION MANAGER & CHROME PROMPT API TESTS: (5/5 PASS)
-# [8/8] LIVE CLOUD RUN INTEGRATION & SWITCHING TESTS: (6/6 PASS)
-# Total Tests: 35 | Passed: 35 | Failed: 0
+# [1/11] SWITCHING ROUTER & PII TESTS: (7/7 PASS)
+# [2/11] MEMORY PIPELINE TESTS: (4/4 PASS)
+# [3/11] CONTRADICTION RESOLUTION & AFFORDANCE TESTS: (6/6 PASS)
+# [4/11] COMPACT EDGE BUNDLE TESTS: (2/2 PASS)
+# [5/11] LLM-AS-A-RATER EVALUATION TESTS: (3/3 PASS)
+# [6/11] GEMMA 4 EDGE ENGINE TESTS: (2/2 PASS)
+# [7/11] LOCAL EXECUTION MANAGER & CHROME PROMPT API TESTS: (5/5 PASS)
+# [8/11] LIVE CLOUD RUN INTEGRATION & SWITCHING TESTS: (6/6 PASS)
+# [9/11] MARKDOWN FORMATTING & PARSING TESTS: (5/5 PASS)
+# [10/11] MEMORY NOTEBOOK & PATTERN SIMULATOR TESTS: (10/10 PASS)
+# [11/11] LORECRAFT DYNAMIC WORLD & NPC ENGINE TESTS: (12/12 PASS)
+# Total Tests: 62 | Passed: 62 | Failed: 0
 # 🎉 ALL TESTS PASSED SUCCESSFULLY (100% PASS RATE)!
 ```
 
@@ -361,4 +423,16 @@ npm run run:emulator
 ```bash
 bash scripts/teardown_eval_resources.sh
 ```
+
+---
+
+## 6. Related Documentation
+- [System Architecture](architecture.md): Complete distributed architecture.
+- [Model Matrix & Hardware Boundaries](model_matrix.md): Latency and hardware execution specifications.
+- [Memory Pipeline Specification](memory_pipeline.md): Online/offline memory ingestion loops.
+- [Routing Guide](routing_guide.md): Dynamic switching policies and circuit breaker.
+- [LLM-as-a-Rater Guide](eval_rater_guide.md): Automated evaluation benchmarks.
+- [LoreCraft Dynamic Gameplay](lorecraft_dynamic_gameplay.md): Dynamic game story engine.
+- [UI/UX Style & Affordances](ui_style_guide.md): Sepia design system standards.
+
 

@@ -126,4 +126,13 @@ Generative AI responses intended to present interactive affordances (choices, ac
 4. **Deduplication**: When `hideTextIfGenerativeUi` is active, duplicate outer speech text and stage cues are suppressed so the user's attention is focused on the A2UI surface without visual repetition.
 5. **Session Isolation**: In on-device runtimes (Chrome Prompt API / Gemini Nano), separate task contexts (`gamemaster` vs `persona`) ensure prior JSON schemas do not contaminate conversational dialogue tokens across model turns.
 
+---
+
+## 7. Related Documentation
+- [LoreCraft Dynamic Gameplay](lorecraft_dynamic_gameplay.md): Narrative systems and A2UI interaction surfaces.
+- [Routing Guide](routing_guide.md): Intent Pill visual contracts and switching rationale modals.
+- [Memory Pipeline Specification](memory_pipeline.md): Quiet typography in memory inspectors and boot sequence telemetry.
+- [Model Matrix & Hardware Boundaries](model_matrix.md): A2UI static catalog and two-step orchestration.
+
+
 
