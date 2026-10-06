@@ -304,6 +304,13 @@ func (c *VertexClient) GetModelID() string {
 // endpoint returns the full Vertex AI REST endpoint for generateContent or streamGenerateContent.
 func (c *VertexClient) endpoint(action string) string {
 	base := strings.TrimRight(c.cfg.VertexEndpoint, "/")
+	if base == "" {
+		if c.cfg.Location == "global" || c.cfg.Location == "" {
+			base = "https://aiplatform.googleapis.com"
+		} else {
+			base = fmt.Sprintf("https://%s-aiplatform.googleapis.com", c.cfg.Location)
+		}
+	}
 	return fmt.Sprintf("%s/v1/projects/%s/locations/%s/publishers/google/models/%s:%s",
 		base, c.cfg.ProjectID, c.cfg.Location, c.cfg.ModelID, action)
 }

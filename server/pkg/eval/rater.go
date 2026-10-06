@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"strings"
@@ -123,6 +124,7 @@ func (r *Rater) Evaluate(ctx context.Context, req *models.EvalBenchmarkRequest) 
 	// Try evaluating with Gemini 3.8 Flash judge pipeline
 	resp, err := r.evaluateWithGemini(ctx, req.BenchmarkID, prompt, req.EdgeCompletion, goldenCriteria, req.LatencyMs, req.TTFTMs)
 	if err != nil {
+		log.Printf("[Rater] evaluateWithGemini returned error: %v", err)
 		// If Gemini API is unreachable (e.g. offline sandbox or unit test),
 		// perform dynamic criterion verification directly on the real output.
 		resp = r.evaluateDynamically(req.BenchmarkID, prompt, req.EdgeCompletion, goldenCriteria, req.LatencyMs, req.TTFTMs)

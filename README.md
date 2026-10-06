@@ -393,3 +393,10 @@ Detailed architectural specifications and deep-dive guides are available in [`do
 - [Routing & Circuit Breaker Guide](docs/routing_guide.md): Firebase AI dynamic switching policy.
 - [LLM-as-a-Rater Guide](docs/eval_rater_guide.md): Automated evaluation rubrics, dimensions, and scoring.
 - [Deployment Walkthrough & Runbook](docs/walkthrough.md): Comprehensive step-by-step production runbook.
+
+---
+
+## License
+
+This project is licensed under the Apache License, Version 2.0 - see the [LICENSE](LICENSE) file for details.
+

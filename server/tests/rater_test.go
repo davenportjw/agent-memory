@@ -39,6 +39,7 @@ func TestLLMAsARaterPipeline(t *testing.T) {
 		t.Fatalf("Evaluate failed: %v", err)
 	}
 
+	t.Logf("JudgeModel: %s | Reasoning: %s", cleanResp.JudgeModel, cleanResp.Reasoning)
 	if cleanResp.JudgeModel != config.ModelGeminiFlash {
 		t.Errorf("Expected judge model %s, got %s", config.ModelGeminiFlash, cleanResp.JudgeModel)
 	}

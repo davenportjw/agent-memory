@@ -9,7 +9,7 @@ import (
 
 const (
 	// DefaultProjectID is the fallback GCP project if not configured in environment.
-	DefaultProjectID = "your-gcp-project-id"
+	DefaultProjectID = "davenport-boutique"
 
 	// DefaultLocation is the primary GCP location for Vertex AI Gemini 3.8 models.
 	DefaultLocation = "global"
