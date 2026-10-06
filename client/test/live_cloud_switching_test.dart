@@ -16,7 +16,7 @@ void runLiveCloudSwitchingTests(
 ) {
   final router = SwitchingRouterService();
   final cloudRunBaseUrl = Platform.environment['CLOUD_BACKEND_URL'] ??
-      const String.fromEnvironment('CLOUD_BACKEND_URL', defaultValue: 'http://localhost:8080');
+      const String.fromEnvironment('CLOUD_BACKEND_URL', defaultValue: 'https://distributed-ai-backend-834476222725.us-central1.run.app');
 
   register('Router switches to EDGE_LOCAL for sensitive/PII prompt (0 KB egress)', () {
     final result = router.evaluateRoute(
