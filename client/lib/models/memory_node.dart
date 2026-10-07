@@ -108,3 +108,20 @@ class DurableKnowledgeNode {
     lastUpdated: json['last_updated'] != null ? DateTime.parse(json['last_updated']) : DateTime.now(),
   );
 }
+
+/// Represents the outcome of an offline or on-demand memory consolidation cycle.
+class ConsolidationResult {
+  final bool success;
+  final int turnsConsolidated;
+  final int nodesUpdated;
+  final String? errorMessage;
+  final bool isOfflineFallback;
+
+  const ConsolidationResult({
+    required this.success,
+    this.turnsConsolidated = 0,
+    this.nodesUpdated = 0,
+    this.errorMessage,
+    this.isOfflineFallback = false,
+  });
+}

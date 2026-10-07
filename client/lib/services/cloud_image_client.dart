@@ -46,9 +46,13 @@ class CloudImageClient {
   })  : baseUrl = baseUrl ??
             const String.fromEnvironment(
               'CLOUD_BACKEND_URL',
-              defaultValue: 'http://localhost:8080',
+              defaultValue: 'https://distributed-ai-backend-834476222725.us-central1.run.app',
             ),
         _httpClient = httpClient ?? http.Client();
+
+  void setBaseUrl(String url) {
+    baseUrl = url;
+  }
 
   Future<CloudImageResult> generateImage({
     required String prompt,

@@ -234,3 +234,44 @@ func TestImageGenerateEndpoint(t *testing.T) {
 		t.Fatalf("Expected status 400 for malformed json, got %d", malformedW.Code)
 	}
 }
+
+func TestModelWeightsEndpoint(t *testing.T) {
+	_, r, _ := setupTestServer(t)
+
+	// 1. Verify OPTIONS Preflight
+	optReq := httptest.NewRequest("OPTIONS", "/api/weights/gemma-4-2b-it-int4.bin", nil)
+	optW := httptest.NewRecorder()
+	r.ServeHTTP(optW, optReq)
+
+	if optW.Code != http.StatusNoContent {
+		t.Fatalf("Expected status 204 for OPTIONS /api/weights/..., got %d", optW.Code)
+	}
+	if optW.Header().Get("Access-Control-Allow-Origin") != "*" {
+		t.Errorf("Missing CORS header Access-Control-Allow-Origin")
+	}
+
+	// 2. Verify Missing Filename (400 Bad Request)
+	emptyReq := httptest.NewRequest("GET", "/api/weights/", nil)
+	emptyW := httptest.NewRecorder()
+	r.ServeHTTP(emptyW, emptyReq)
+
+	if emptyW.Code != http.StatusBadRequest {
+		t.Fatalf("Expected status 400 for empty weights filename, got %d", emptyW.Code)
+	}
+
+	// 3. Verify Non-existent weights returns 404 with informative JSON error
+	missingReq := httptest.NewRequest("GET", "/api/weights/nonexistent-model.bin", nil)
+	missingW := httptest.NewRecorder()
+	r.ServeHTTP(missingW, missingReq)
+
+	if missingW.Code != http.StatusNotFound {
+		t.Fatalf("Expected status 404 for missing weights file, got %d", missingW.Code)
+	}
+	var errResp map[string]string
+	if err := json.NewDecoder(missingW.Body).Decode(&errResp); err != nil {
+		t.Fatalf("Failed to decode JSON error: %v", err)
+	}
+	if !strings.Contains(errResp["error"], "nonexistent-model.bin") {
+		t.Errorf("Expected error to contain model filename, got: %v", errResp)
+	}
+}

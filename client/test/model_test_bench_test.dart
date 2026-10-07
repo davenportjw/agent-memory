@@ -112,4 +112,39 @@ void main() {
     expect(find.text('Model Evaluation Trace'), findsOneWidget);
     expect(find.textContaining('Composite Rating Breakdown'), findsOneWidget);
   });
+
+  testWidgets('Model Test Bench: Action bar embeds GemmaLoadPill and cards afford weight loading and cloud retry', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: DeviceTestBench(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Verify GemmaLoadPill is present in the action bar
+    expect(find.textContaining('Gemma 4'), findsWidgets);
+
+    // 2. Verify on-device Gemma weight readiness banner appears
+    expect(find.text('Weights not resident (~1.46 GB)'), findsWidgets);
+    expect(find.text('Load Weights'), findsWidgets);
+
+    // 3. Tap 'Run Across All Models'
+    await tester.tap(find.text('Run Across All Models'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    // 4. Verify actionable recovery buttons appear on failed/unloaded models (Zero False Affordances)
+    expect(find.text('Load Gemma 4 Weights'), findsWidgets);
+    expect(find.text('Run on Cloud Run'), findsWidgets);
+    expect(find.text('Retry Connection'), findsOneWidget);
+    expect(find.textContaining('Target: http'), findsOneWidget);
+  });
 }
+

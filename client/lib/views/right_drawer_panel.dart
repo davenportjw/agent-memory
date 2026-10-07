@@ -997,6 +997,14 @@ class _RightDrawerPanelState extends State<RightDrawerPanel> {
             'Target: Google Cloud Run (us-central1 / Vertex AI)',
             style: SepiaTheme.mono(fontSize: 9, color: SepiaTheme.inkMuted),
           ),
+          if (widget.loreService != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Endpoint: ${widget.loreService!.cloudClient.baseUrl}',
+              style: SepiaTheme.mono(fontSize: 8.5, color: SepiaTheme.azure),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
           if (widget.circuitBreakerState != CircuitBreakerState.CLOSED) ...[
             const SizedBox(height: 8),
             SizedBox(

@@ -53,7 +53,20 @@ class A2UIExtractor {
       );
     }
 
-    String workingText = rawText;
+    // Filter out any leaked SSE protocol frames (e.g. event: error, data: [DONE])
+    final sanitizedLines = rawText.split('\n').where((line) {
+      final t = line.trim();
+      return !t.startsWith('event:') && t != 'data: [DONE]';
+    }).join('\n');
+
+    if (sanitizedLines.trim().isEmpty) {
+      return const ExtractedA2UIPayload(
+        cleanSpeechText: '',
+        hasA2UIPayload: false,
+      );
+    }
+
+    String workingText = sanitizedLines;
     String? extractedCue;
 
     // 1. Extract stage cues (*[cue]*), if present

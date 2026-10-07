@@ -165,5 +165,47 @@ void runMemoryNotebookStudioTests(
     expect(firstPending.nodeType == MemoryNodeType.diffAdded, 'Pending turn must be diffAdded');
     expect(firstPending.children.isNotEmpty, 'Pending turn must display extracted entity attributes');
   });
+
+  register('Source filter partitions local memory tree, cloud knowledge tree, and diff tree accurately', () {
+    final service = LocalMemoryService();
+
+    // 1. LoreCraft filtered trees
+    final loreLocalTree = service.getLocalMemoryTree(sourceFilter: 'LORECRAFT');
+    final loreCloudTree = service.getCloudKnowledgeTree(sourceFilter: 'LORECRAFT');
+    final loreDiffTree = service.getEdgeCloudDiffTree(sourceFilter: 'LORECRAFT');
+
+    expect(loreLocalTree.label.contains('LORECRAFT'), 'Local tree label must mention LORECRAFT filter');
+    expect(loreCloudTree.label.contains('LORECRAFT'), 'Cloud tree label must mention LORECRAFT filter');
+    expect(loreDiffTree.label.contains('LORECRAFT'), 'Diff tree label must mention LORECRAFT filter');
+
+    // Durable nodes for LoreCraft
+    final loreDurable = service.getDurableNodesForSource('LORECRAFT');
+    expect(loreDurable.isNotEmpty, 'Should contain LoreCraft durable nodes');
+    for (final node in loreDurable) {
+      expect(
+        node.category == 'ROADMAP_DECISION' || node.id.contains('lore') || node.entityName.contains('Quest'),
+        'All nodes must be LoreCraft related',
+      );
+    }
+
+    // 2. Assistant filtered trees
+    final asstLocalTree = service.getLocalMemoryTree(sourceFilter: 'ASSISTANT');
+    final asstCloudTree = service.getCloudKnowledgeTree(sourceFilter: 'ASSISTANT');
+    final asstDiffTree = service.getEdgeCloudDiffTree(sourceFilter: 'ASSISTANT');
+
+    expect(asstLocalTree.label.contains('ASSISTANT'), 'Local tree label must mention ASSISTANT filter');
+    expect(asstCloudTree.label.contains('ASSISTANT'), 'Cloud tree label must mention ASSISTANT filter');
+    expect(asstDiffTree.label.contains('ASSISTANT'), 'Diff tree label must mention ASSISTANT filter');
+
+    // 3. Item counts verification
+    final allCount = service.getAllItemsCount();
+    final loreCount = service.getLoreCraftItemsCount();
+    final asstCount = service.getAssistantItemsCount();
+
+    expect(allCount > 0, 'Total item count must be positive');
+    expect(loreCount > 0, 'LoreCraft item count must be positive');
+    expect(asstCount > 0, 'Assistant item count must be positive');
+    expect(allCount >= loreCount + asstCount, 'All count must encompass both sources');
+  });
 }
 

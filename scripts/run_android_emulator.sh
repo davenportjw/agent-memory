@@ -53,7 +53,7 @@ if [ -n "${JAVA_HOME:-}" ]; then
 fi
 
 AVD_NAME="${1:-gemma4_edge_tablet}"
-CLOUD_BACKEND_URL="${2:-${CLOUD_BACKEND_URL:-http://localhost:8080}}"
+CLOUD_BACKEND_URL="${2:-${CLOUD_BACKEND_URL:-https://distributed-ai-backend-834476222725.us-central1.run.app}}"
 
 echo "==========================================================="
 echo " ANTIGRAVITY // ANDROID EMULATOR RUNTIME LAUNCHER"

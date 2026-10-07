@@ -818,11 +818,11 @@ Future<void> triggerOfflineConsolidation() async {
       );
     }
 
-    // Step 2: Trigger Gemini 3.8 Flash offline consolidation loop
+    // Step 2: Trigger Gemini 3.8 Flash offline consolidation loop across sessions
     final res = await client.post(
       Uri.parse('\$baseUrl/api/memory/consolidate'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'session_id': 'sess_client_consolidation'}),
+      body: jsonEncode({'session_id': '', 'auto_publish_bundle': true}),
     );
 
     // Step 3: Fetch updated compact bundle strictly bounded <= 50 KB

@@ -5,17 +5,26 @@ import '../models/routing_decision.dart';
 import '../models/edge_memory_bundle.dart';
 
 class CloudSseClient {
-  String baseUrl = const String.fromEnvironment(
-    'CLOUD_BACKEND_URL',
-    defaultValue: 'http://localhost:8080',
-  );
+  String baseUrl;
   bool isConnected = true;
+
+  CloudSseClient({String? baseUrl})
+      : baseUrl = baseUrl ??
+            const String.fromEnvironment(
+              'CLOUD_BACKEND_URL',
+              defaultValue:
+                  'https://distributed-ai-backend-834476222725.us-central1.run.app',
+            );
+
+  void setBaseUrl(String url) {
+    baseUrl = url;
+  }
 
   Stream<String> streamCloudCompletion({
     required String prompt,
-    required List<MemoryAnchor> injectedAnchors,
-    required void Function(ExecutionTelemetry telemetry) onComplete,
-    required void Function(dynamic error) onError,
+    List<MemoryAnchor> injectedAnchors = const [],
+    void Function(ExecutionTelemetry telemetry)? onComplete,
+    void Function(dynamic error)? onError,
   }) async* {
     final startTime = DateTime.now();
     int? ttftMs;
@@ -42,37 +51,88 @@ class CloudSseClient {
 
       var tokenCount = 0;
       final fullResponseBuffer = StringBuffer();
+      String currentEvent = 'message';
+      bool hasStreamError = false;
+      String? streamErrorMessage;
 
       await for (final line in streamedResponse.stream
           .transform(utf8.decoder)
           .transform(const LineSplitter())) {
-        if (ttftMs == null) {
-          ttftMs = DateTime.now().difference(startTime).inMilliseconds;
+        final trimmed = line.trim();
+        if (trimmed.isEmpty) {
+          // Reset event name for the next SSE message
+          currentEvent = 'message';
+          continue;
         }
 
-        if (line.isEmpty) continue;
-
-        String rawJson = line;
-        if (line.startsWith('data: ')) {
-          rawJson = line.substring(6).trim();
+        // SSE comment, ignore
+        if (trimmed.startsWith(':')) {
+          continue;
         }
 
-        try {
-          final parsed = jsonDecode(rawJson) as Map<String, dynamic>;
-          final textChunk = parsed['text'] as String? ?? '';
-          if (textChunk.isNotEmpty) {
-            tokenCount += textChunk.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).length;
-            fullResponseBuffer.write(textChunk);
-            yield textChunk;
+        // SSE event type specification (e.g. event: error)
+        if (trimmed.startsWith('event:')) {
+          currentEvent = trimmed.substring(6).trim();
+          continue;
+        }
+
+        // SSE data field
+        if (trimmed.startsWith('data:')) {
+          final dataPayload = trimmed.substring(5).trim();
+
+          // End of stream indicator
+          if (dataPayload == '[DONE]') {
+            break;
           }
-        } catch (_) {
-          // If response was not JSON SSE, yield raw text chunk directly
-          tokenCount++;
-          yield line;
+
+          // Error event handling
+          if (currentEvent == 'error') {
+            hasStreamError = true;
+            try {
+              final parsed = jsonDecode(dataPayload) as Map<String, dynamic>;
+              streamErrorMessage = parsed['error'] as String? ?? dataPayload;
+            } catch (_) {
+              streamErrorMessage = dataPayload;
+            }
+            break;
+          }
+
+          try {
+            final parsed = jsonDecode(dataPayload) as Map<String, dynamic>;
+            if (parsed.containsKey('error') && parsed['error'] != null) {
+              hasStreamError = true;
+              streamErrorMessage = parsed['error'].toString();
+              break;
+            }
+
+            final textChunk = parsed['text'] as String? ?? '';
+            if (textChunk.isNotEmpty) {
+              if (ttftMs == null) {
+                ttftMs = DateTime.now().difference(startTime).inMilliseconds;
+              }
+              tokenCount += textChunk.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).length;
+              fullResponseBuffer.write(textChunk);
+              yield textChunk;
+            }
+          } catch (_) {
+            // Only yield non-JSON payload if it is genuine text and not protocol syntax
+            if (currentEvent != 'error' && !trimmed.startsWith('event:') && dataPayload != '[DONE]') {
+              if (ttftMs == null) {
+                ttftMs = DateTime.now().difference(startTime).inMilliseconds;
+              }
+              tokenCount++;
+              yield dataPayload;
+            }
+          }
         }
       }
 
       client.close();
+
+      if (hasStreamError) {
+        final errText = streamErrorMessage ?? 'Cloud Run streaming inference error';
+        throw Exception(errText);
+      }
 
       final totalDurationMs = DateTime.now().difference(startTime).inMilliseconds;
       final durationSeconds = totalDurationMs > 0 ? (totalDurationMs / 1000.0) : 0.1;
@@ -90,9 +150,13 @@ class CloudSseClient {
         circuitBreakerState: CircuitBreakerState.CLOSED,
       );
 
-      onComplete(telemetry);
+      if (onComplete != null) {
+        onComplete(telemetry);
+      }
     } catch (e) {
-      onError(e);
+      if (onError != null) {
+        onError(e);
+      }
       rethrow;
     }
   }
@@ -129,6 +193,9 @@ class CloudSseClient {
       }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data.containsKey('error') && data['error'] != null) {
+        throw Exception('Cloud Run error: ${data['error']}');
+      }
       return data['text'] as String? ?? '';
     } finally {
       client.close();

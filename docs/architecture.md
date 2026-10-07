@@ -85,4 +85,5 @@ LoreCraft provides a grounded, tangible distributed AI wrapper for dynamic game 
 - [Routing & Circuit Breaker Guide](routing_guide.md): Firebase AI dynamic switching policy.
 - [LLM-as-a-Rater Guide](eval_rater_guide.md): Automated evaluation rubrics, dimensions, and scoring.
 - [UI/UX Style & Affordances](ui_style_guide.md): Antigravity sepia design tokens and quiet typography standards.
+- [Multi-Agent & Gemini Model Matrix](gemini_agent_matrix.md): Multi-agent directory, prompt contracts, and model parameters.
 - [Deployment Walkthrough & Runbook](walkthrough.md): Comprehensive step-by-step production runbook.

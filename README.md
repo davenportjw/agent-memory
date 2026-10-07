@@ -559,7 +559,15 @@ Detailed architectural specifications, narrative guides, and deep-dive reference
 | **[LLM-as-a-Rater Guide](docs/eval_rater_guide.md)** | Automated evaluation rubrics, dimensions, comparative model bench, and scoring harness. |
 | **[LoreCraft Dynamic Gameplay](docs/lorecraft_dynamic_gameplay.md)** | Dynamic story engine, dual-model architecture, 5-stage quest tracks, and A2UI. |
 | **[UI/UX Style & Affordances](docs/ui_style_guide.md)** | Academic sepia design tokens, quiet typography standards, and A2UI dynamic affordances. |
+| **[Multi-Agent & Gemini Matrix](docs/gemini_agent_matrix.md)** | Multi-agent directory, prompt contracts, and model execution parameters. |
 | **[Deployment Walkthrough & Runbook](docs/walkthrough.md)** | Comprehensive end-to-end verification runbook, user journeys, and test suite audit. |
+
+### Reusable Agent Skills (`.agents/skills/`)
+- [`ui-clarity-and-tdd`](.agents/skills/ui-clarity-and-tdd/SKILL.md): Mandatory planning, TDD, affordance enforcement, and clarity standards for client UI.
+- [`edge-cloud-switching-router`](.agents/skills/edge-cloud-switching-router/SKILL.md): Dynamic switching rules, PII scrubbing, circuit breakers, and foresight pills.
+- [`dual-loop-memory-pipeline`](.agents/skills/dual-loop-memory-pipeline/SKILL.md): Real-time local context, offline consolidation, <50 KB edge bundles, and Envoy boot.
+- [`decoupled-narrative-arbiter`](.agents/skills/decoupled-narrative-arbiter/SKILL.md): Decoupled dual-model persona + game master arbiter orchestration with A2UI choices.
+- [`fullstack-cloudrun-deploy`](.agents/skills/fullstack-cloudrun-deploy/SKILL.md): Google Cloud Run release deployment, ADC auth, live HTTP probe verification, and teardown.
 
 ---
 

@@ -243,7 +243,7 @@ The following developer-internal controls, cheat mechanisms, and diagnostic arti
 - **Edge Model Toggle**: The top bar Edge Engine Toggle (`btn_toggle_edge_model`) is revealed in Everything Mode, allowing developers to instantly switch between on-device Gemma 4 int4 (WebGPU / LiteRT) and Gemini Nano (Chrome Built-in Prompt API) with dynamic live model synthesis.
 - **Developer Cheat Knobs**: Faction reputation `+10 / -10` stepper buttons (`btn_faction_sub_*`, `btn_faction_add_*`) are hidden in Simple Mode.
 - **Direct Nav Jump Shortcuts**: The top bar `DEV MEMORY` button and left drawer `INSPECT IN MEMORY STUDIO ➔` shortcut are hidden in Simple Mode.
-- **Arbiter & Scoring Rubrics**: The Canon Arbiter Scorecard card in the Living Lore drawer, the LLM-as-a-rater grading rubric card (`EducationAssessmentCard`) on the boot page, and raw frame budget compliance badges are hidden in Simple Mode.
+- **Arbiter & Scoring Rubrics**: The Canon Arbiter Scorecard card in the Living Lore drawer, the LLM-as-a-rater grading rubric card (`EducationAssessmentCard`) on the boot page (hidden by default; toggleable via `[SHOW EFFICACY RATER]`), and raw frame budget compliance badges are hidden in Simple Mode.
 - **Dialogue Telemetry**: Tapping a dialogue badge in Simple Mode displays a focused 3-pillar breakdown (Execution Route, Model Engine, TTFT/Latency, Cloud Egress, Memory Delta, Routing Reason). In Everything Mode, it displays full internal rule IDs (`Firebase AI Policy`), arbiter models, and commentary.
 
 ---

@@ -88,6 +88,94 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
     }
   }
 
+  Future<void> _handleConsolidate() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await widget.memoryService.triggerOfflineConsolidation();
+    if (!mounted) return;
+
+    if (!result.success) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('⚠️ Consolidation error: ${result.errorMessage ?? "Failed to reach backend"}'),
+          backgroundColor: SepiaTheme.terracotta,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } else if (result.turnsConsolidated == 0 && result.nodesUpdated == 0) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('ℹ️ Ingestion queue is empty. No new turns to consolidate.'),
+          backgroundColor: SepiaTheme.amber,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } else if (result.isOfflineFallback) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '⚠️ Cloud offline: Local fallback consolidated ${result.turnsConsolidated} turn${result.turnsConsolidated == 1 ? "" : "s"} into ${result.nodesUpdated} node${result.nodesUpdated == 1 ? "" : "s"}.',
+          ),
+          backgroundColor: SepiaTheme.amber,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '✅ Consolidated ${result.turnsConsolidated} turn${result.turnsConsolidated == 1 ? "" : "s"} into ${result.nodesUpdated} durable node${result.nodesUpdated == 1 ? "" : "s"} via Gemini 3.8 Flash.',
+          ),
+          backgroundColor: SepiaTheme.sage,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  void _handleRepackBundle() {
+    widget.memoryService.repackLocalEdgeBundle();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✅ Edge memory bundle repacked and synchronized (<50KB budget).'),
+        backgroundColor: SepiaTheme.sage,
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _handlePrefetchTopic(String topicId) {
+    widget.memoryService.fetchMemoryTopic(topicId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('📥 Topic "$topicId" prefetched from cloud dream into local SQLite cache.'),
+        backgroundColor: SepiaTheme.amber,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _handleEvictTopic(String topicId) {
+    widget.memoryService.evictMemoryTopic(topicId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('☁️ Topic "$topicId" evicted to cloud dream storage.'),
+        backgroundColor: SepiaTheme.slate,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _handlePruneContext(BuildContext context) {
+    widget.memoryService.pruneWorkingContext(retainCount: 3);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🧹 Pruned working context: retained newest 3 turns (LRU).'),
+        backgroundColor: SepiaTheme.sage,
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bundle = widget.memoryService.activeEdgeBundle;
@@ -109,6 +197,26 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
                 _buildStudioHeader(bundle, isWithinBudget, isMobile),
                 const SizedBox(height: 16),
 
+                // Hero Workstation: Hierarchical Memory Tree & Edge-to-Cloud Diff View
+                KeyedSubtree(
+                  key: _treeKey,
+                  child: MemoryTreeView(
+                    localTree: widget.memoryService.getLocalMemoryTree(sourceFilter: _selectedSourceFilter),
+                    cloudTree: widget.memoryService.getCloudKnowledgeTree(sourceFilter: _selectedSourceFilter),
+                    diffTree: widget.memoryService.getEdgeCloudDiffTree(sourceFilter: _selectedSourceFilter),
+                    initialSegmentIndex: 2, // ⚡ Edge-Cloud Diff is the hero star
+                    onConsolidateQueue: widget.memoryService.isConsolidating ? null : _handleConsolidate,
+                    onRepackBundle: _handleRepackBundle,
+                    onPrefetchTopic: _handlePrefetchTopic,
+                    onEvictTopic: _handleEvictTopic,
+                    onPruneContext: () => _handlePruneContext(context),
+                    onInspectContradiction: (cr, node) {
+                      _showContradictionDetailsDialog(context, node, cr.priorDirective);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 // Mechanism Guide: Creation, Redaction, Usage, Removal
                 _buildMemoryMechanismsGuide(),
                 const SizedBox(height: 16),
@@ -121,7 +229,7 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
                 ),
                 const SizedBox(height: 16),
 
-                // Section B: Notebook Cells Stream (Stages 1 to 4)
+                // Section B: Detailed Memory Lifecycle Cells (Stages 1 to 4)
                 _buildCell1WorkingMemory(),
                 const SizedBox(height: 14),
                 _buildCell2ShortTermMemory(),
@@ -129,20 +237,6 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
                 _buildCell3LongTermMemory(),
                 const SizedBox(height: 14),
                 _buildCell4EdgeBundle(bundle),
-                const SizedBox(height: 16),
-
-                // Section C: Hierarchical Memory Tree (Local vs. Cloud)
-                KeyedSubtree(
-                  key: _treeKey,
-                  child: MemoryTreeView(
-                    localTree: widget.memoryService.getLocalMemoryTree(),
-                    cloudTree: widget.memoryService.getCloudKnowledgeTree(),
-                    diffTree: widget.memoryService.getEdgeCloudDiffTree(),
-                    onInspectContradiction: (cr, node) {
-                      _showContradictionDetailsDialog(context, node, cr.priorDirective);
-                    },
-                  ),
-                ),
                 const SizedBox(height: 16),
 
                 // Section D: Memory Pattern Simulator Bench
@@ -237,9 +331,7 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
                 if (!isMobile) ...[
                   const SizedBox(width: 16),
                   ElevatedButton.icon(
-                    onPressed: widget.memoryService.isConsolidating
-                        ? null
-                        : () => widget.memoryService.triggerOfflineConsolidation(),
+                    onPressed: widget.memoryService.isConsolidating ? null : _handleConsolidate,
                     icon: widget.memoryService.isConsolidating
                         ? const SizedBox(
                             width: 14,
@@ -297,18 +389,18 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
                   ),
                 ),
                 _buildFilterPill(
-                  label: 'ALL SOURCES (${widget.memoryService.workingContext.length})',
+                  label: 'ALL SOURCES (${widget.memoryService.getAllItemsCount()})',
                   isSelected: _selectedSourceFilter == 'ALL',
                   onTap: () => setState(() => _selectedSourceFilter = 'ALL'),
                 ),
                 _buildFilterPill(
-                  label: '⚔ LORECRAFT GAME WORLD (${widget.memoryService.loreCraftWorkingTurnsCount})',
+                  label: '⚔ LORECRAFT GAME WORLD (${widget.memoryService.getLoreCraftItemsCount()})',
                   isSelected: _selectedSourceFilter == 'LORECRAFT',
                   onTap: () => setState(() => _selectedSourceFilter = 'LORECRAFT'),
                   icon: Icons.auto_stories_rounded,
                 ),
                 _buildFilterPill(
-                  label: '💬 ASSISTANT SHELL (${widget.memoryService.assistantWorkingTurnsCount})',
+                  label: '💬 ASSISTANT SHELL (${widget.memoryService.getAssistantItemsCount()})',
                   isSelected: _selectedSourceFilter == 'ASSISTANT',
                   onTap: () => setState(() => _selectedSourceFilter = 'ASSISTANT'),
                   icon: Icons.chat_bubble_outline_rounded,
@@ -321,10 +413,14 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: widget.memoryService.isConsolidating
-                      ? null
-                      : () => widget.memoryService.triggerOfflineConsolidation(),
-                  icon: const Icon(Icons.sync_rounded, size: 16),
+                  onPressed: widget.memoryService.isConsolidating ? null : _handleConsolidate,
+                  icon: widget.memoryService.isConsolidating
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.sync_rounded, size: 16),
                   label: Text(widget.memoryService.isConsolidating ? 'Consolidating...' : 'Consolidate (Cloud Run)'),
                 ),
               ),
@@ -700,9 +796,15 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
             'Zero Cloud Egress for PII: Raw contact info and credentials never leave local storage. Turns queued for cloud batch consolidation are strictly sanitized.',
         actions: [
           OutlinedButton.icon(
-            onPressed: queue.isEmpty ? null : () => widget.memoryService.triggerOfflineConsolidation(),
-            icon: const Icon(Icons.cloud_upload_outlined, size: 14),
-            label: const Text('Drain Queue to Cloud'),
+            onPressed: (queue.isEmpty || widget.memoryService.isConsolidating) ? null : _handleConsolidate,
+            icon: widget.memoryService.isConsolidating
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: SepiaTheme.sage),
+                  )
+                : const Icon(Icons.cloud_upload_outlined, size: 14),
+            label: Text(widget.memoryService.isConsolidating ? 'Draining...' : 'Drain Queue to Cloud'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               textStyle: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.w600),
@@ -759,7 +861,7 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
   }
 
   Widget _buildCell3LongTermMemory() {
-    final nodes = widget.memoryService.durableNodes;
+    final nodes = widget.memoryService.getDurableNodesForSource(_selectedSourceFilter);
 
     return KeyedSubtree(
       key: _cell3Key,
@@ -774,9 +876,15 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
             'Dual-Loop Synchronization: Expensive graph reconciliations run on Cloud Run L4 GPUs/CPUs. Distilled knowledge is compiled into compact bundles for zero-latency edge use.',
         actions: [
           OutlinedButton.icon(
-            onPressed: () => widget.memoryService.triggerOfflineConsolidation(),
-            icon: const Icon(Icons.auto_awesome_rounded, size: 14, color: SepiaTheme.amber),
-            label: const Text('Consolidate (Gemini 3.8 Flash)'),
+            onPressed: widget.memoryService.isConsolidating ? null : _handleConsolidate,
+            icon: widget.memoryService.isConsolidating
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: SepiaTheme.amber),
+                  )
+                : const Icon(Icons.auto_awesome_rounded, size: 14, color: SepiaTheme.amber),
+            label: Text(widget.memoryService.isConsolidating ? 'Consolidating...' : 'Consolidate (Gemini 3.8 Flash)'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               textStyle: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.w600),
@@ -879,7 +987,7 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
   }
 
   Widget _buildCell4EdgeBundle(CompactEdgeMemoryBundle? bundle) {
-    final anchors = bundle?.anchors ?? [];
+    final anchors = widget.memoryService.getEdgeAnchorsForSource(_selectedSourceFilter);
 
     return KeyedSubtree(
       key: _cell4Key,

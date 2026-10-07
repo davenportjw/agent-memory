@@ -1069,7 +1069,10 @@ class _ShellLayoutState extends State<ShellLayout> {
       case ShellNavDestination.memoryStudio:
         return MemoryLifecycleStudio(memoryService: _memoryService);
       case ShellNavDestination.modelTestBench:
-        return const DeviceTestBench();
+        return DeviceTestBench(
+          edgeManager: _edgeManager,
+          cloudClient: _cloudClient,
+        );
       case ShellNavDestination.switchingPolicy:
         return const PolicyMatrixView();
       case ShellNavDestination.featureSynthesizer:

@@ -190,9 +190,9 @@ The on-device model is prompted with the active NPC persona, faction, current qu
 ```
 
 ### 5.3 Visual Synthesis Handoff
-When the user selects a `visual_synthesis` card:
-1. **Cloud Escalation**: The client calls Cloud Run (`/api/chat` or `/api/eval/benchmark`) with `intent: 'visual_synthesis'` to materialize the masterwork concept art via Vertex AI Imagen / Nano Banana 2 Lite.
-2. **Generative UI Rendering**: An inline `A2UiSurfaceCard` renders the materialized image with inspection affordances, metadata chips, and prompt provenance.
+When the user selects a `visual_synthesis` card or prompts for visual concept art:
+1. **Cloud Escalation**: The client calls Cloud Run (`https://distributed-ai-backend-834476222725.us-central1.run.app/api/image/generate`) via `CloudImageClient` to materialize the masterwork concept art using Vertex AI `gemini-3.1-flash-lite-image` (Cloud Nano Banana 2 Lite).
+2. **Generative UI Rendering**: An inline `A2UiSurfaceCard` renders the materialized image with inspection affordances, metadata chips, and prompt provenance. If cloud connectivity is temporarily interrupted, the dialogue card provides an actionable `Retry Visual Synthesis (Cloud Run)` affordance with zero dead UI.
 3. **Local Follow-Up Bark**: The on-device Gemma 4 model observes the completion of the visual synthesis and automatically generates an immediate in-character reactive bark from the active NPC (e.g., Lyra inspecting the contraband seals under dim lantern light).
 
 ### 5.4 Mission Dossier Progression & A2UI Game Moments
@@ -266,14 +266,17 @@ Continuous verification is maintained across both unit and widget integration te
 | :--- | :--- | :--- |
 | `client/test/mission_dossier_a2ui_game_moments_test.dart` | Milestone-to-dossier auto-completion, quest stage advancement objective synchronization, declarative A2UI Game Moment Card generation, `A2UISurfaceView` rendering with `Inspect Mission Dossier ➔`, and in-studio modal launch showing verified green checkmark | **5/5 PASSING** |
 | `client/test/mission_and_dynamic_cards_test.dart` | `GameMission` model integrity, immutable `copyWith`, `LoreCraftService` pre-dialogue guard, contact seeding, dynamic 3-card generation, Lyra water context handling, `LoreCraftMissionBriefingCard` widget rendering, radio selection, streamlined studio input layout, and studio deployment transitions | **11/11 PASSING** |
-| `client/test/lorecraft_switching_feature_test.dart` | `LoreCraftRouterDial` 3-mode stance toggle, `LoreCraftForesightPill` dynamic route preview, `Firebase AI Routing Dossier` bottom sheet with quick route benchmark probes, and Dialogue Card dynamic escalation badging with telemetry inspection modal | **4/4 PASSING** |
+| `client/test/cloud_sse_client_test.dart` | SSE protocol line parsing, handling `event: error` and JSON error payloads without leaking raw tokens, data chunk assembly, comment stripping | **2/2 PASSING** |
+| `client/test/lorecraft_switching_feature_test.dart` | `LoreCraftRouterDial` 3-mode stance toggle, `LoreCraftForesightPill` dynamic route preview, `Firebase AI Routing Dossier` bottom sheet with quick route benchmark probes, Dialogue Card dynamic escalation badging, terracotta escalation failure state with retry button, and telemetry inspection modal | **5/5 PASSING** |
 | `client/test/lorecraft_studio_test.dart` | 3 factions, 3 NPCs, 3 regions, habitat shifts, reputation updates, memory bundle budget, rubric standards, and dialogue frame inspector | **12/12 PASSING** |
 | `client/test/quest_progression_test.dart` | Multi-stage dynamic quest tracks across all 3 NPCs, `hideTextIfGenerativeUi` flag toggling, and objective stage advancement | **6/6 PASSING** |
 | `client/test/switching_router_test.dart` | PII regex detection & scrubbing, context limit escalation, multi-hop reasoning, circuit breaker fallback, mode overrides | **7/7 PASSING** |
 | `client/test/a2ui_rendering_test.dart` | Proactive choice tags, visual canvas with Nano Banana 2 Lite telemetry, two-step visual-to-local pipeline, embedded markdown JSON choices extraction, raw JSON code fence stripping, full declarative A2UI JSON parsing, and `hideTextIfGenerativeUi` focus mode | **9/9 PASSING** |
 | `client/test/lorecraft_simple_mode_clarity_test.dart` | Simple vs. Everything mode visual partitioning, dev tool knob filtering, and Edge Model Toggle (`btn_toggle_edge_model`) switching between Gemma 4 int4 and Gemini Nano | **3/3 PASSING** |
+| `client/test/model_test_bench_test.dart` | Single prompt input, preset chips, 4-rubric composite scoring, GemmaLoadPill integration, on-device weight readiness banner, and zero false affordance recovery controls (`Load Gemma 4 Weights`, `Retry Connection`) | **4/4 PASSING** |
+| `client/test/live_cloud_switching_test.dart` | Live Cloud Run probe `/api/chat` Gemini 3.8 Flash escalation, memory bundle budget, live eval benchmark LLM judge, and Nano Banana 2 Lite visual generation | **7/7 PASSING** |
 | `client/test/eval_rater_test.dart` | Model comparison matrix, automated eval rater scoring, and rubric standards | **4/4 PASSING** |
-| `server/tests/` | Cloud Run backend, Gemini 3.8 Flash escalation routes, SSE transport | **PASSING** |
+| `server/tests/` | Cloud Run backend, Gemini 3.8 Flash escalation routes, `/api/weights/` weight streaming, SSE transport, exponential backoff retries | **8/8 PASSING** |
 
 ---
 

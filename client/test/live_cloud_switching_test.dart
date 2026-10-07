@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../lib/services/switching_router_service.dart';
 import '../lib/models/routing_decision.dart';
+import '../lib/services/cloud_image_client.dart';
 
 void main() {
   runLiveCloudSwitchingTests(test, (cond, [msg = 'Assertion failed']) => expect(cond, isTrue, reason: msg));
@@ -99,5 +100,17 @@ void runLiveCloudSwitchingTests(
     expect(jsonMap['passed'] == true, 'Expected benchmark to pass');
     expect((jsonMap['overall_score'] as num) >= 4.0, 'Expected score >= 4.0');
     client.close();
+  });
+
+  register('Live Cloud Run probe: /api/image/generate synthesizes visual asset via Nano Banana 2 Lite', () async {
+    final imageClient = CloudImageClient(baseUrl: cloudRunBaseUrl);
+    final result = await imageClient.generateImage(
+      prompt: 'A dwarven forge glowing with ember runes',
+      aspectRatio: '1:1',
+      sessionId: 'sess_test_image_probe',
+    );
+    expect(result.imageBase64.isNotEmpty, 'Expected non-empty imageBase64');
+    expect(result.modelId.contains('gemini-3.1-flash-lite-image') || result.modelId.contains('Nano Banana'), 'Expected Nano Banana / gemini-3.1-flash-lite-image model');
+    expect(result.egressBytes > 0, 'Expected egressBytes > 0');
   });
 }

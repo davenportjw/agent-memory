@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -332,31 +334,60 @@ func (c *VertexClient) GenerateContent(ctx context.Context, req *GenerateRequest
 	}
 
 	endpoint := c.endpoint("generateContent")
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create http request: %w", err)
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json; charset=utf-8")
-	httpReq.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("vertex api call failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("vertex api error (HTTP %d): %s", resp.StatusCode, string(body))
-	}
-
+	var lastErr error
 	var genResp GenerateResponse
-	if err := json.NewDecoder(resp.Body).Decode(&genResp); err != nil {
-		return nil, fmt.Errorf("failed to decode vertex response: %w", err)
+	backoff := 800 * time.Millisecond
+	maxRetries := 3
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			jitter := time.Duration(rand.Intn(400)) * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoff + jitter):
+				backoff *= 2
+			}
+			log.Printf("[VertexClient] Retrying GenerateContent (attempt %d/%d) after backoff: %v", attempt, maxRetries, lastErr)
+		}
+
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(reqBody))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create http request: %w", err)
+		}
+
+		httpReq.Header.Set("Content-Type", "application/json; charset=utf-8")
+		httpReq.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err := c.httpClient.Do(httpReq)
+		if err != nil {
+			lastErr = fmt.Errorf("vertex api call failed: %w", err)
+			continue
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode >= 500 {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Errorf("vertex api error (HTTP %d): %s", resp.StatusCode, string(body))
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("vertex api error (HTTP %d): %s", resp.StatusCode, string(body))
+		}
+
+		decodeErr := json.NewDecoder(resp.Body).Decode(&genResp)
+		resp.Body.Close()
+		if decodeErr != nil {
+			return nil, fmt.Errorf("failed to decode vertex response: %w", decodeErr)
+		}
+
+		return &genResp, nil
 	}
 
-	return &genResp, nil
+	return nil, fmt.Errorf("vertex api call failed after %d retries: %w", maxRetries, lastErr)
 }
 
 // StreamGenerateContent streams server-sent events (SSE) from Vertex AI Gemini 3.8 Flash.
@@ -376,25 +407,59 @@ func (c *VertexClient) StreamGenerateContent(ctx context.Context, req *GenerateR
 	}
 
 	endpoint := c.endpoint("streamGenerateContent") + "?alt=sse"
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create stream request: %w", err)
+	var lastErr error
+	var resp *http.Response
+	backoff := 800 * time.Millisecond
+	maxRetries := 3
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			jitter := time.Duration(rand.Intn(400)) * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoff + jitter):
+				backoff *= 2
+			}
+			log.Printf("[VertexClient] Retrying StreamGenerateContent (attempt %d/%d) after backoff: %v", attempt, maxRetries, lastErr)
+		}
+
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(reqBody))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create stream request: %w", err)
+		}
+
+		httpReq.Header.Set("Content-Type", "application/json; charset=utf-8")
+		httpReq.Header.Set("Accept", "text/event-stream")
+		httpReq.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err = c.httpClient.Do(httpReq)
+		if err != nil {
+			lastErr = fmt.Errorf("vertex stream api call failed: %w", err)
+			continue
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode >= 500 {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Errorf("vertex stream api error (HTTP %d): %s", resp.StatusCode, string(body))
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("vertex stream api error (HTTP %d): %s", resp.StatusCode, string(body))
+		}
+
+		lastErr = nil
+		break
 	}
 
-	httpReq.Header.Set("Content-Type", "application/json; charset=utf-8")
-	httpReq.Header.Set("Accept", "text/event-stream")
-	httpReq.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("vertex stream api call failed: %w", err)
+	if lastErr != nil {
+		return nil, fmt.Errorf("vertex stream api call failed after %d retries: %w", maxRetries, lastErr)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("vertex stream api error (HTTP %d): %s", resp.StatusCode, string(body))
-	}
 
 	var fullResponse GenerateResponse
 	var accumulatedText strings.Builder
@@ -503,24 +568,58 @@ func (c *VertexClient) GenerateImage(ctx context.Context, req *models.ImageGener
 		config.ModelNanoBanana2Lite,
 	)
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create http request: %w", err)
+	var lastErr error
+	var resp *http.Response
+	backoff := 800 * time.Millisecond
+	maxRetries := 3
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			jitter := time.Duration(rand.Intn(400)) * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoff + jitter):
+				backoff *= 2
+			}
+			log.Printf("[VertexClient] Retrying GenerateImage (attempt %d/%d) after backoff: %v", attempt, maxRetries, lastErr)
+		}
+
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(reqBody))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create http request: %w", err)
+		}
+
+		httpReq.Header.Set("Content-Type", "application/json; charset=utf-8")
+		httpReq.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err = c.httpClient.Do(httpReq)
+		if err != nil {
+			lastErr = fmt.Errorf("vertex nano banana 2 lite call failed: %w", err)
+			continue
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode >= 500 {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Errorf("vertex nano banana 2 lite error (HTTP %d): %s", resp.StatusCode, string(body))
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("vertex nano banana 2 lite error (HTTP %d): %s", resp.StatusCode, string(body))
+		}
+
+		lastErr = nil
+		break
 	}
 
-	httpReq.Header.Set("Content-Type", "application/json; charset=utf-8")
-	httpReq.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("vertex nano banana 2 lite call failed: %w", err)
+	if lastErr != nil {
+		return nil, fmt.Errorf("vertex nano banana 2 lite call failed after %d retries: %w", maxRetries, lastErr)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("vertex nano banana 2 lite error (HTTP %d): %s", resp.StatusCode, string(body))
-	}
 
 	var genResp GenerateResponse
 	if err := json.NewDecoder(resp.Body).Decode(&genResp); err != nil {

@@ -186,7 +186,7 @@ class LoreCraftDialogueCard extends StatelessWidget {
                   ],
 
                   // Fallback warning if triggered
-                  if (turn.isFallback && turn.fallbackReason != null)
+                  if (turn.isFallback && turn.fallbackReason != null) ...[
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
                       child: Text(
@@ -194,6 +194,74 @@ class LoreCraftDialogueCard extends StatelessWidget {
                         style: SepiaTheme.sans(fontSize: 11, color: SepiaTheme.terracotta),
                       ),
                     ),
+                    if (turn.visualPrompt != null && onA2UIAction != null) ...[
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          key: const Key('btn_retry_visual_synth'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            visualDensity: VisualDensity.compact,
+                            backgroundColor: SepiaTheme.terracottaBg,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              side: BorderSide(color: SepiaTheme.terracottaBorder),
+                            ),
+                          ),
+                          icon: const Icon(Icons.refresh_rounded, size: 14, color: SepiaTheme.terracotta),
+                          label: Text(
+                            'Retry Visual Synthesis (Cloud Run)',
+                            style: SepiaTheme.mono(fontSize: 11, fontWeight: FontWeight.w600, color: SepiaTheme.terracotta),
+                          ),
+                          onPressed: () {
+                            onA2UIAction!(A2UIAction(
+                              surfaceId: 'a2ui-${turn.id}',
+                              componentId: 'visual_canvas',
+                              actionId: 'retry_visual_synth',
+                              intent: 'visual_synthesis',
+                              parameters: {
+                                'prompt': turn.visualPrompt!,
+                              },
+                            ));
+                          },
+                        ),
+                      ),
+                    ] else if (onA2UIAction != null) ...[
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          key: const Key('btn_retry_dialogue_turn'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            visualDensity: VisualDensity.compact,
+                            backgroundColor: SepiaTheme.terracottaBg,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              side: BorderSide(color: SepiaTheme.terracottaBorder),
+                            ),
+                          ),
+                          icon: const Icon(Icons.refresh_rounded, size: 14, color: SepiaTheme.terracotta),
+                          label: Text(
+                            'Retry Turn (Cloud Run)',
+                            style: SepiaTheme.mono(fontSize: 11, fontWeight: FontWeight.w600, color: SepiaTheme.terracotta),
+                          ),
+                          onPressed: () {
+                            onA2UIAction!(A2UIAction(
+                              surfaceId: 'a2ui-${turn.id}',
+                              componentId: 'turn_retry',
+                              actionId: 'retry_turn',
+                              intent: 'retry_turn',
+                              parameters: {
+                                'turn_id': turn.id,
+                              },
+                            ));
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
                 ],
               ),
             ),
@@ -243,24 +311,33 @@ class LoreCraftDialogueCard extends StatelessWidget {
   Widget _buildTelemetryAffordance(BuildContext context) {
     final isEdge = turn.route == ExecutionRoute.EDGE_LOCAL || turn.route == ExecutionRoute.EDGE_FALLBACK;
     final isVisual = turn.modelName.contains('Nano Banana');
+    final isFailure = turn.isFallback;
 
-    final badgeColor = isVisual
-        ? SepiaTheme.azure
-        : (isEdge ? SepiaTheme.sage : SepiaTheme.amber);
-    final badgeBg = isVisual
-        ? SepiaTheme.azureBg
-        : (isEdge ? SepiaTheme.sageBg : SepiaTheme.amberBg);
-    final badgeBorder = isVisual
-        ? SepiaTheme.azureBorder
-        : (isEdge ? SepiaTheme.sageBorder : SepiaTheme.amberBorder);
-
-    final badgeText = turn.isDynamicallyEscalated
-        ? '☁️ DYNAMIC ESCALATION • ${turn.modelName} • ${turn.latencyMs}ms'
+    final badgeColor = isFailure
+        ? SepiaTheme.terracotta
         : (isVisual
-            ? '☁️ CLOUD ESCALATED • Nano Banana 2 Lite • ${turn.latencyMs}ms'
-            : (isEdge
-                ? '⚡ LOCAL EDGE • 0.0 KB Egress • ${turn.ttftMs > 0 ? '${turn.ttftMs}ms' : '< 60ms'}'
-                : '☁️ CLOUD ESCALATED • Gemini 3.8 Flash • ${turn.latencyMs}ms'));
+            ? SepiaTheme.azure
+            : (isEdge ? SepiaTheme.sage : SepiaTheme.amber));
+    final badgeBg = isFailure
+        ? SepiaTheme.terracottaBg
+        : (isVisual
+            ? SepiaTheme.azureBg
+            : (isEdge ? SepiaTheme.sageBg : SepiaTheme.amberBg));
+    final badgeBorder = isFailure
+        ? SepiaTheme.terracottaBorder
+        : (isVisual
+            ? SepiaTheme.azureBorder
+            : (isEdge ? SepiaTheme.sageBorder : SepiaTheme.amberBorder));
+
+    final badgeText = isFailure
+        ? '⚠️ ESCALATION FAILED • ${turn.modelName} • ${turn.latencyMs}ms'
+        : (turn.isDynamicallyEscalated
+            ? '☁️ DYNAMIC ESCALATION • ${turn.modelName} • ${turn.latencyMs}ms'
+            : (isVisual
+                ? '☁️ CLOUD ESCALATED • Nano Banana 2 Lite • ${turn.latencyMs}ms'
+                : (isEdge
+                    ? '⚡ LOCAL EDGE • 0.0 KB Egress • ${turn.ttftMs > 0 ? '${turn.ttftMs}ms' : '< 60ms'}'
+                    : '☁️ CLOUD ESCALATED • Gemini 3.8 Flash • ${turn.latencyMs}ms')));
 
     final isSimple = AppModeService().isSimple;
     return InkWell(
@@ -273,9 +350,11 @@ class LoreCraftDialogueCard extends StatelessWidget {
                 title: Row(
                   children: [
                     Icon(
-                      isVisual
-                          ? Icons.auto_awesome
-                          : (isEdge ? Icons.bolt : Icons.cloud_outlined),
+                      isFailure
+                          ? Icons.warning_amber_rounded
+                          : (isVisual
+                              ? Icons.auto_awesome
+                              : (isEdge ? Icons.bolt : Icons.cloud_outlined)),
                       color: badgeColor,
                       size: 20,
                     ),
@@ -292,6 +371,8 @@ class LoreCraftDialogueCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: isSimple
                         ? [
+                            if (turn.isFallback && turn.fallbackReason != null)
+                              _metricRow('Escalation Failure', turn.fallbackReason!),
                             _metricRow('Execution Route', isEdge ? '⚡ Local Edge (On-Device)' : '☁️ Cloud Escalated (Remote)'),
                             _metricRow('Model Engine', turn.modelName),
                             _metricRow('Time to First Token (TTFT)', '${turn.ttftMs} ms'),
@@ -309,6 +390,8 @@ class LoreCraftDialogueCard extends StatelessWidget {
                               _metricRow('Routing Reason', turn.routeJustification!),
                           ]
                         : [
+                            if (turn.isFallback && turn.fallbackReason != null)
+                              _metricRow('Escalation Failure', turn.fallbackReason!),
                             _metricRow('Execution Route', turn.route.name),
                             if (turn.personaModelName != null)
                               _metricRow('Persona Model (Talking)', turn.personaModelName!),

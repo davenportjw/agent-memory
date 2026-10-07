@@ -216,5 +216,69 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Dialogue Frame Telemetry'), findsNothing);
     });
+
+    testWidgets('LoreCraftDialogueCard: Escalation failure displays terracotta badge, failure reason, and retry button', (tester) async {
+      final failedTurn = LoreDialogueTurn(
+        id: 'turn-failed-1',
+        speakerName: 'Gideon Stonehand',
+        isNpc: true,
+        stageCue: '*[wipes soot from brow]*',
+        speechText: '⚠️ Escalation failed: 429 Resource exhausted (quota exceeded)',
+        timestamp: DateTime.now(),
+        route: ExecutionRoute.EDGE_FALLBACK,
+        modelName: 'Gemini 3.8 Flash (Edge Fallback)',
+        isDynamicallyEscalated: true,
+        isFallback: true,
+        fallbackReason: '429 Resource exhausted (quota exceeded)',
+        ttftMs: 0,
+        latencyMs: 25022,
+        egressBytes: 0,
+      );
+
+      dynamic triggeredAction;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LoreCraftDialogueCard(
+              turn: failedTurn,
+              onA2UIAction: (action) {
+                triggeredAction = action;
+              },
+            ),
+          ),
+        ),
+      );
+
+      // Verify failed badge
+      expect(find.textContaining('ESCALATION FAILED'), findsOneWidget);
+      expect(find.textContaining('Gemini 3.8 Flash (Edge Fallback)'), findsOneWidget);
+      expect(find.textContaining('25022ms'), findsOneWidget);
+
+      // Verify fallback reason in card
+      expect(find.textContaining('⚠️ Fallback: 429 Resource exhausted (quota exceeded)'), findsOneWidget);
+
+      // Verify retry button
+      expect(find.byKey(const Key('btn_retry_dialogue_turn')), findsOneWidget);
+      expect(find.text('Retry Turn (Cloud Run)'), findsOneWidget);
+
+      // Tap retry button and assert action
+      await tester.tap(find.byKey(const Key('btn_retry_dialogue_turn')));
+      await tester.pumpAndSettle();
+
+      expect(triggeredAction, isNotNull);
+      expect(triggeredAction.actionId, equals('retry_turn'));
+      expect(triggeredAction.parameters['turn_id'], equals('turn-failed-1'));
+
+      // Tap telemetry badge to verify modal shows failure cause
+      await tester.tap(find.textContaining('ESCALATION FAILED'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Escalation Failure'), findsOneWidget);
+      expect(find.text('429 Resource exhausted (quota exceeded)'), findsWidgets);
+
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+    });
   });
 }

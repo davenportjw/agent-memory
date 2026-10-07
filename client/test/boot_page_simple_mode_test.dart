@@ -30,7 +30,7 @@ void main() {
       );
     });
 
-    testWidgets('Simple mode hides EducationAssessmentCard', (tester) async {
+    testWidgets('Simple mode hides EducationAssessmentCard and toggle button', (tester) async {
       tester.view.physicalSize = const Size(1440, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -53,9 +53,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(EducationAssessmentCard), findsNothing);
+      expect(find.byKey(const Key('btn_toggle_efficacy_rater')), findsNothing);
     });
 
-    testWidgets('Everything mode displays EducationAssessmentCard', (tester) async {
+    testWidgets('Everything mode hides EducationAssessmentCard by default and reveals on toggle tap', (tester) async {
       tester.view.physicalSize = const Size(1440, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -77,7 +78,27 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // Hidden by default in boot prompt
+      expect(find.byType(EducationAssessmentCard), findsNothing);
+      final toggleFinder = find.byKey(const Key('btn_toggle_efficacy_rater'));
+      expect(toggleFinder, findsOneWidget);
+      expect(find.text('SHOW EFFICACY RATER'), findsOneWidget);
+
+      // Tap to reveal
+      await tester.ensureVisible(toggleFinder);
+      await tester.tap(toggleFinder);
+      await tester.pumpAndSettle();
+
       expect(find.byType(EducationAssessmentCard), findsOneWidget);
+      expect(find.text('HIDE EFFICACY RATER'), findsOneWidget);
+
+      // Tap to re-hide
+      await tester.ensureVisible(toggleFinder);
+      await tester.tap(toggleFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EducationAssessmentCard), findsNothing);
+      expect(find.text('SHOW EFFICACY RATER'), findsOneWidget);
     });
   });
 }

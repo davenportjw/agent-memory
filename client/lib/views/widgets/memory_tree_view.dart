@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/memory_tree_node.dart';
 import '../../models/memory_node.dart';
+import '../../models/edge_memory_architecture.dart';
 import '../../theme/sepia_theme.dart';
 
 /// Interactive Dual/Triple-Tree Memory Hierarchy Widget
@@ -17,6 +18,11 @@ class MemoryTreeView extends StatefulWidget {
   final MemoryTreeNode? diffTree;
   final void Function(ContradictionRecord record, DurableKnowledgeNode node) onInspectContradiction;
   final int initialSegmentIndex;
+  final VoidCallback? onConsolidateQueue;
+  final VoidCallback? onRepackBundle;
+  final ValueChanged<String>? onPrefetchTopic;
+  final ValueChanged<String>? onEvictTopic;
+  final VoidCallback? onPruneContext;
 
   const MemoryTreeView({
     super.key,
@@ -24,7 +30,12 @@ class MemoryTreeView extends StatefulWidget {
     required this.cloudTree,
     this.diffTree,
     required this.onInspectContradiction,
-    this.initialSegmentIndex = 0,
+    this.initialSegmentIndex = 2,
+    this.onConsolidateQueue,
+    this.onRepackBundle,
+    this.onPrefetchTopic,
+    this.onEvictTopic,
+    this.onPruneContext,
   });
 
   @override
@@ -376,6 +387,105 @@ class _MemoryTreeViewState extends State<MemoryTreeView> {
                           ),
                         ),
                       ],
+                      if (node.metadata['entry'] is MasterIndexEntry) ...[
+                        const SizedBox(height: 4),
+                        Builder(
+                          builder: (context) {
+                            final entry = node.metadata['entry'] as MasterIndexEntry;
+                            return Row(
+                              children: [
+                                if (entry.isCachedLocally)
+                                  InkWell(
+                                    key: Key('topic-evict-${entry.topicId}'),
+                                    onTap: widget.onEvictTopic != null
+                                        ? () => widget.onEvictTopic!(entry.topicId)
+                                        : null,
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: SepiaTheme.paperSubtle,
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: SepiaTheme.borderSubtle),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.cloud_upload_outlined, size: 11, color: SepiaTheme.slate),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Evict to Cloud Dream',
+                                            style: SepiaTheme.sans(fontSize: 10, fontWeight: FontWeight.w600, color: SepiaTheme.slate),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  InkWell(
+                                    key: Key('topic-prefetch-${entry.topicId}'),
+                                    onTap: widget.onPrefetchTopic != null
+                                        ? () => widget.onPrefetchTopic!(entry.topicId)
+                                        : null,
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: SepiaTheme.paperSubtle,
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: SepiaTheme.border),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.download_rounded, size: 11, color: SepiaTheme.amber),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Prefetch to Edge Cache',
+                                            style: SepiaTheme.sans(fontSize: 10, fontWeight: FontWeight.w600, color: SepiaTheme.amber),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                      if (node.id == 'diff-branch-pending' &&
+                          node.children.isNotEmpty &&
+                          node.children.first.id != 'diff-pending-clean') ...[
+                        const SizedBox(height: 4),
+                        InkWell(
+                          key: const Key('inline-consolidate-queue'),
+                          onTap: widget.onConsolidateQueue,
+                          borderRadius: BorderRadius.circular(4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: SepiaTheme.amber.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: SepiaTheme.amber),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.bolt_rounded, size: 12, color: SepiaTheme.amber),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Consolidate Queue Now ➔',
+                                  style: SepiaTheme.sans(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: SepiaTheme.amber,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -562,6 +672,74 @@ class _MemoryTreeViewState extends State<MemoryTreeView> {
                 'Edge RAM Budget',
                 '$bundleSizeKb KB / 50.0 KB (${isWithinBudget ? "Preserving zero-egress budget" : "Exceeding mobile RAM limit"})',
                 isWithinBudget ? SepiaTheme.sage : SepiaTheme.terracotta,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: SepiaTheme.borderSubtle),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.bolt_rounded, size: 14, color: SepiaTheme.amber),
+              const SizedBox(width: 6),
+              Text(
+                'Memory Movement Tasks (Edge ⮂ Cloud)',
+                style: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElevatedButton.icon(
+                key: const Key('diff-action-consolidate'),
+                onPressed: pendingCount > 0 ? widget.onConsolidateQueue : null,
+                icon: const Icon(Icons.cloud_upload_outlined, size: 13),
+                label: Text(
+                  pendingCount > 0
+                      ? 'Consolidate $pendingCount Turns (Gemini 3.8 Flash)'
+                      : 'Consolidate Queue (0 Pending)',
+                  style: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: pendingCount > 0 ? SepiaTheme.amber : SepiaTheme.borderSubtle,
+                  foregroundColor: pendingCount > 0 ? SepiaTheme.paper : SepiaTheme.inkMuted,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+              OutlinedButton.icon(
+                key: const Key('diff-action-repack'),
+                onPressed: widget.onRepackBundle,
+                icon: const Icon(Icons.compress_rounded, size: 13),
+                label: Text(
+                  'Repack Edge Bundle (<50KB)',
+                  style: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: SepiaTheme.ink,
+                  side: const BorderSide(color: SepiaTheme.border),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+              OutlinedButton.icon(
+                key: const Key('diff-action-prune'),
+                onPressed: widget.onPruneContext,
+                icon: const Icon(Icons.cleaning_services_outlined, size: 13),
+                label: Text(
+                  'Prune Working Context (LRU)',
+                  style: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: SepiaTheme.inkSecondary,
+                  side: const BorderSide(color: SepiaTheme.borderSubtle),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
             ],
           ),

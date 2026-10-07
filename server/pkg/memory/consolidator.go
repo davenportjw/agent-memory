@@ -56,6 +56,7 @@ func (c *Consolidator) Consolidate(ctx context.Context, sessionID string, forceA
 			ConsolidatedTurns: 0,
 			NodesUpdated:      0,
 			Nodes:             []models.DurableKnowledgeNode{},
+			ConsolidatedNodes: []models.DurableKnowledgeNode{},
 		}, nil
 	}
 
@@ -109,6 +110,7 @@ func (c *Consolidator) Consolidate(ctx context.Context, sessionID string, forceA
 		ConsolidatedTurns: len(turns),
 		NodesUpdated:      len(savedNodes),
 		Nodes:             savedNodes,
+		ConsolidatedNodes: savedNodes,
 	}, nil
 }
 

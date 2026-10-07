@@ -48,8 +48,15 @@ class LoreCraftService extends ChangeNotifier {
     required this.cloudClient,
     required this.memoryService,
     CloudImageClient? cloudImageClient,
-  })  : cloudImageClient = cloudImageClient ?? CloudImageClient() {
+  })  : cloudImageClient = cloudImageClient ?? CloudImageClient(baseUrl: cloudClient.baseUrl) {
     _initDefaults();
+  }
+
+  void updateCloudBackendUrl(String url) {
+    cloudClient.setBaseUrl(url);
+    cloudImageClient.setBaseUrl(url);
+    memoryService.setBaseUrl(url);
+    notifyListeners();
   }
 
   // World State
@@ -1543,6 +1550,18 @@ Output format:
       return;
     }
 
+    if (action.actionId == 'retry_turn' || action.intent == 'retry_turn') {
+      final turnId = action.parameters['turn_id'] as String?;
+      if (turnId != null) {
+        final failedIdx = turns.indexWhere((t) => t.id == turnId);
+        if (failedIdx > 0) {
+          final previousUserTurn = turns.sublist(0, failedIdx).lastWhere((t) => !t.isNpc, orElse: () => turns[0]);
+          await sendPlayerAction(previousUserTurn.speechText);
+        }
+      }
+      return;
+    }
+
     ObjectiveMilestoneEvent? milestone;
     if (choiceId != null) {
       final progress = getQuestProgress(activeNpc.id);
@@ -2178,6 +2197,9 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
       int firstTokenMs = 0;
       final StringBuffer responseBuffer = StringBuffer();
       final responseTurnId = npcResponseTurn.id;
+      bool wasDynamicallyEscalated = isDynamicallyEscalated;
+      String currentPersonaModel = activePersonaEngine;
+      String? turnExecutionError;
 
       // MODEL 1: Conversational Persona Model (Streams spoken dialogue to user)
       if (isEdge) {
@@ -2208,6 +2230,10 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
 
         // Truthful dynamic fallback: if edge weights are not resident, route turn to Cloud Run
         if (!edgeCompleted || responseBuffer.isEmpty) {
+          responseBuffer.clear();
+          wasDynamicallyEscalated = true;
+          currentPersonaModel = 'Gemini 3.8 Flash (Edge Fallback)';
+
           try {
             final stream = cloudClient.streamCloudCompletion(
               prompt: groundedContext,
@@ -2223,6 +2249,7 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
                   turns[turnIndex] = turns[turnIndex].copyWith(
                     route: ExecutionRoute.EDGE_FALLBACK,
                     modelName: 'Gemini 3.8 Flash (Edge Fallback)',
+                    personaModelName: 'Gemini 3.8 Flash (Edge Fallback)',
                     isDynamicallyEscalated: true,
                     ttftMs: telemetry.ttftMs,
                     latencyMs: telemetry.totalLatencyMs,
@@ -2231,7 +2258,9 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
                   notifyListeners();
                 }
               },
-              onError: (_) {},
+              onError: (err) {
+                turnExecutionError = err.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+              },
             );
 
             await for (final chunk in stream) {
@@ -2246,34 +2275,54 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
                 notifyListeners();
               }
             }
-          } catch (_) {
-            // Handled gracefully in downstream cleanSpokenText extraction
+          } catch (e) {
+            turnExecutionError = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
           }
         }
       } else {
-        final stream = cloudClient.streamCloudCompletion(
-          prompt: groundedContext,
-          injectedAnchors: worldAnchors.map((a) => MemoryAnchor(
-            anchorId: 'anchor-${a.id}',
-            key: a.key,
-            category: a.category,
-            distilledContext: a.distilledContext,
-          )).toList(),
-          onComplete: (_) {},
-          onError: (_) {},
-        );
+        currentPersonaModel = 'Gemini 3.8 Flash';
+        try {
+          final stream = cloudClient.streamCloudCompletion(
+            prompt: groundedContext,
+            injectedAnchors: worldAnchors.map((a) => MemoryAnchor(
+              anchorId: 'anchor-${a.id}',
+              key: a.key,
+              category: a.category,
+              distilledContext: a.distilledContext,
+            )).toList(),
+            onComplete: (telemetry) {
+              final turnIndex = turns.indexWhere((t) => t.id == responseTurnId);
+              if (turnIndex != -1) {
+                turns[turnIndex] = turns[turnIndex].copyWith(
+                  route: ExecutionRoute.CLOUD_ESCALATE,
+                  modelName: 'Gemini 3.8 Flash',
+                  personaModelName: 'Gemini 3.8 Flash',
+                  ttftMs: telemetry.ttftMs,
+                  latencyMs: telemetry.totalLatencyMs,
+                  egressBytes: (telemetry.cloudEgressKb * 1024).toInt(),
+                );
+                notifyListeners();
+              }
+            },
+            onError: (err) {
+              turnExecutionError = err.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+            },
+          );
 
-        await for (final chunk in stream) {
-          if (firstTokenMs == 0) firstTokenMs = stopwatch.elapsedMilliseconds;
-          responseBuffer.write(chunk);
-          final turnIndex = turns.indexWhere((t) => t.id == responseTurnId);
-          if (turnIndex != -1) {
-            turns[turnIndex] = turns[turnIndex].copyWith(
-              speechText: responseBuffer.toString(),
-              ttftMs: firstTokenMs,
-            );
-            notifyListeners();
+          await for (final chunk in stream) {
+            if (firstTokenMs == 0) firstTokenMs = stopwatch.elapsedMilliseconds;
+            responseBuffer.write(chunk);
+            final turnIndex = turns.indexWhere((t) => t.id == responseTurnId);
+            if (turnIndex != -1) {
+              turns[turnIndex] = turns[turnIndex].copyWith(
+                speechText: responseBuffer.toString(),
+                ttftMs: firstTokenMs,
+              );
+              notifyListeners();
+            }
           }
+        } catch (e) {
+          turnExecutionError = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
         }
       }
 
@@ -2287,13 +2336,14 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
         surfaceIdPrefix: 'a2ui-$responseTurnId',
       );
 
-      final cleanSpokenText = extracted.cleanSpeechText.isNotEmpty
-          ? extracted.cleanSpeechText
-          : (activeNpc.id == 'gideon'
-              ? 'State your business plainly. The foundry floor is no place for idle chatter.'
-              : (activeNpc.id == 'lyra'
-                  ? 'Keep your voice down. The Syndicate listens at every dockside corner.'
-                  : 'If your business is with the guild, speak directly.'));
+      final bool hasInferenceError = turnExecutionError != null || (responseBuffer.isEmpty && extracted.cleanSpeechText.isEmpty);
+      final String cleanSpokenText;
+      if (hasInferenceError) {
+        final errDetails = turnExecutionError ?? 'Inference stream produced empty response';
+        cleanSpokenText = '⚠️ Escalation failed: $errDetails';
+      } else {
+        cleanSpokenText = extracted.cleanSpeechText;
+      }
 
       final effectiveStageCue = (extracted.extractedStageCue != null && extracted.extractedStageCue!.isNotEmpty)
           ? extracted.extractedStageCue!
@@ -2351,14 +2401,17 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
           stageCue: effectiveStageCue,
           speechText: cleanSpokenText,
           isStreaming: false,
+          isFallback: hasInferenceError,
+          fallbackReason: hasInferenceError ? (turnExecutionError ?? 'Inference stream produced empty response') : null,
+          isDynamicallyEscalated: wasDynamicallyEscalated,
           ttftMs: firstTokenMs > 0 ? firstTokenMs : 45,
-          latencyMs: totalMs,
-          egressBytes: isEdge ? 0 : (prompt.length * 1.2).round(),
-          modelName: activePersonaEngine,
-          personaModelName: activePersonaEngine,
+          latencyMs: totalMs > 0 ? totalMs : 45,
+          egressBytes: isEdge && !wasDynamicallyEscalated ? 0 : (prompt.length * 1.2).round(),
+          modelName: currentPersonaModel,
+          personaModelName: currentPersonaModel,
           arbiterModelName: assessment.arbiterModelName,
           gameMasterCommentary: assessment.commentary,
-          isObjectiveCompleted: assessment.isObjectiveCompleted || activeMilestone != null || isVictory,
+          isObjectiveCompleted: !hasInferenceError && (assessment.isObjectiveCompleted || activeMilestone != null || isVictory),
           a2uiSurface: proactiveSurface,
         );
       }

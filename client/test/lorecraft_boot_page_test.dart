@@ -7,6 +7,7 @@ import '../lib/services/local_execution_manager.dart';
 import '../lib/services/cloud_sse_client.dart';
 import '../lib/services/local_memory_service.dart';
 import '../lib/models/edge_memory_architecture.dart';
+import '../lib/services/app_mode_service.dart';
 import '../lib/views/lorecraft_boot_page_view.dart';
 
 void main() {
@@ -433,6 +434,40 @@ void main() {
       expect(memoryService.environmentalState.networkStatus, equals('OFFLINE_AIRGAPPED'));
       expect(memoryService.bootState.routingPolicy, equals(EdgeRoutingPolicy.offlineAirgapped));
       expect(find.textContaining('AIR-GAPPED OFFLINE'), findsWidgets);
+    });
+
+    testWidgets('Educational Efficacy Rater is hidden by default and expands on toggle tap', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      final prevMode = AppModeService().mode;
+      AppModeService().setMode(AppDisplayMode.everything);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        AppModeService().setMode(prevMode);
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LoreCraftBootPageView(
+              loreService: loreService,
+              memoryService: memoryService,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final toggleBtn = find.byKey(const Key('btn_toggle_efficacy_rater'));
+      await tester.ensureVisible(toggleBtn);
+      expect(find.text('SHOW EFFICACY RATER'), findsOneWidget);
+      expect(find.text('EDUCATIONAL EFFICACY RATER'), findsNothing);
+
+      await tester.tap(toggleBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('HIDE EFFICACY RATER'), findsOneWidget);
+      expect(find.text('EDUCATIONAL EFFICACY RATER'), findsOneWidget);
     });
   });
 }

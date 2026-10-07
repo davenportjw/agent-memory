@@ -137,6 +137,7 @@ type ConsolidateResponse struct {
 	ConsolidatedTurns int                    `json:"consolidated_turns"`
 	NodesUpdated      int                    `json:"nodes_updated"`
 	Nodes             []DurableKnowledgeNode `json:"nodes"`
+	ConsolidatedNodes []DurableKnowledgeNode `json:"consolidated_nodes,omitempty"`
 }
 
 // RubricScore holds evaluation for an individual rubric criterion.

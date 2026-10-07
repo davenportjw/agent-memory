@@ -62,7 +62,7 @@ fi
 
 # Defaults
 AVD_NAME="gemma4_edge_tablet"
-CLOUD_BACKEND_URL="${CLOUD_BACKEND_URL:-http://localhost:8080}"
+CLOUD_BACKEND_URL="${CLOUD_BACKEND_URL:-https://distributed-ai-backend-834476222725.us-central1.run.app}"
 EMULATOR_ONLY=false
 BUILD_ONLY=false
 FORCE_REBUILD=false

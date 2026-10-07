@@ -8,11 +8,20 @@ import '../services/switching_router_service.dart';
 import '../services/gemma_edge_service.dart';
 import '../services/chrome_prompt_api_service.dart';
 import '../services/cloud_sse_client.dart';
+import '../services/local_execution_manager.dart';
 import '../theme/sepia_theme.dart';
+import 'widgets/gemma_load_pill.dart';
 import 'widgets/sepia_markdown_widget.dart';
 
 class DeviceTestBench extends StatefulWidget {
-  const DeviceTestBench({super.key});
+  final LocalExecutionManager? edgeManager;
+  final CloudSseClient? cloudClient;
+
+  const DeviceTestBench({
+    super.key,
+    this.edgeManager,
+    this.cloudClient,
+  });
 
   @override
   State<DeviceTestBench> createState() => _DeviceTestBenchState();
@@ -21,9 +30,10 @@ class DeviceTestBench extends StatefulWidget {
 class _DeviceTestBenchState extends State<DeviceTestBench> {
   final TextEditingController _promptController = TextEditingController();
   final SwitchingRouterService _routerService = SwitchingRouterService();
-  final GemmaEdgeService _gemmaService = GemmaEdgeService();
-  final ChromePromptApiService _chromeService = ChromePromptApiService();
-  final CloudSseClient _cloudClient = CloudSseClient();
+  late final LocalExecutionManager _edgeManager;
+  late final CloudSseClient _cloudClient;
+  late final GemmaEdgeService _gemmaService;
+  late final ChromePromptApiService _chromeService;
 
   bool _isEvaluatingAll = false;
   RoutingEvaluationResult? _predictedRoute;
@@ -68,8 +78,17 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
   @override
   void initState() {
     super.initState();
+    _edgeManager = widget.edgeManager ?? LocalExecutionManager();
+    _edgeManager.addListener(_onEdgeManagerChanged);
+    _cloudClient = widget.cloudClient ?? CloudSseClient();
+    _gemmaService = _edgeManager.gemmaService;
+    _chromeService = _edgeManager.chromeService;
+
     _promptController.text = _presetPrompts[0]['prompt']!;
     _updatePredictedRoute(_promptController.text);
+
+    // Initial check of on-device capabilities
+    _edgeManager.init();
 
     _modelEntries = [
       ModelComparisonEntry(
@@ -107,8 +126,13 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
     ];
   }
 
+  void _onEdgeManagerChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _edgeManager.removeListener(_onEdgeManagerChanged);
     _promptController.dispose();
     super.dispose();
   }
@@ -142,6 +166,45 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
     try {
       if (modelId == 'gemma-4-2b' || modelId == 'gemma-4-a4b') {
         _gemmaService.selectVariant(modelId);
+
+        // Check if on-device model weights are loaded
+        if (!_edgeManager.isGemmaWeightsLoaded) {
+          final unavailableReason = _edgeManager.gemmaError ??
+              'Gemma 4 on-device weights (~1.46 GB) are not loaded in resident memory. Tap "Load Model Weights" to stream via WebGPU int4.';
+          if (mounted) {
+            setState(() {
+              _modelEntries[index] = _modelEntries[index].copyWith(
+                isExecuting: false,
+                error: unavailableReason,
+                responseText: '',
+                telemetry: ExecutionTelemetry(
+                  ttftMs: 0,
+                  totalLatencyMs: 0,
+                  tokensGenerated: 0,
+                  throughputTps: 0.0,
+                  ramUsageMb: 0.0,
+                  cloudEgressKb: 0.0,
+                  modelName: _modelEntries[index].displayName,
+                ),
+                scoreCard: EvalScoreCard(
+                  benchmarkId: 'CUSTOM_PROMPT',
+                  modelId: modelId,
+                  semanticFidelity: 1.0,
+                  instructionCompliance: 1.0,
+                  safetyAndPiiRedaction: 5.0,
+                  efficiencyFactor: 1.0,
+                  edgeOutput: '',
+                  goldenOutput: '',
+                  ttftMs: 0,
+                  ramMb: 0.0,
+                  judgeVerdict: 'SKIPPED: Gemma 4 on-device weights are not loaded. Tap "Load Model Weights" to stream into resident memory.',
+                ),
+              );
+            });
+          }
+          return;
+        }
+
         final buffer = StringBuffer();
         ExecutionTelemetry? finalTelemetry;
 
@@ -296,12 +359,26 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
               finalTelemetry = telemetry;
             },
             onError: (err) {
-              // Surface true network/API errors
+              // Surface true network/API errors with actionable context
               if (mounted) {
+                final readableErr = _formatCloudError(err);
                 setState(() {
                   _modelEntries[index] = _modelEntries[index].copyWith(
-                    error: 'Cloud Run connection error: $err',
+                    error: readableErr,
                     isExecuting: false,
+                    scoreCard: EvalScoreCard(
+                      benchmarkId: 'CUSTOM_PROMPT',
+                      modelId: modelId,
+                      semanticFidelity: 1.0,
+                      instructionCompliance: 1.0,
+                      safetyAndPiiRedaction: 1.0,
+                      efficiencyFactor: 1.0,
+                      edgeOutput: '',
+                      goldenOutput: '',
+                      ttftMs: 0,
+                      ramMb: 0.0,
+                      judgeVerdict: 'FAILED (1.00/5.00) — $readableErr',
+                    ),
                   );
                 });
               }
@@ -321,10 +398,24 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
         } catch (e) {
           // If direct SSE streaming encounters an unhandled exception, record real error
           if (mounted) {
+            final readableErr = _formatCloudError(e.toString());
             setState(() {
               _modelEntries[index] = _modelEntries[index].copyWith(
                 isExecuting: false,
-                error: 'Cloud Run escalation error: $e',
+                error: readableErr,
+                scoreCard: EvalScoreCard(
+                  benchmarkId: 'CUSTOM_PROMPT',
+                  modelId: modelId,
+                  semanticFidelity: 1.0,
+                  instructionCompliance: 1.0,
+                  safetyAndPiiRedaction: 1.0,
+                  efficiencyFactor: 1.0,
+                  edgeOutput: '',
+                  goldenOutput: '',
+                  ttftMs: 0,
+                  ramMb: 0.0,
+                  judgeVerdict: 'FAILED (1.00/5.00) — $readableErr',
+                ),
               );
             });
           }
@@ -364,9 +455,61 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
           _modelEntries[index] = _modelEntries[index].copyWith(
             isExecuting: false,
             error: 'Execution error: $e',
+            scoreCard: EvalScoreCard(
+              benchmarkId: 'CUSTOM_PROMPT',
+              modelId: modelId,
+              semanticFidelity: 1.0,
+              instructionCompliance: 1.0,
+              safetyAndPiiRedaction: 1.0,
+              efficiencyFactor: 1.0,
+              edgeOutput: '',
+              goldenOutput: '',
+              ttftMs: 0,
+              ramMb: 0.0,
+              judgeVerdict: 'FAILED (1.00/5.00) — Execution exception: $e',
+            ),
           );
         });
       }
+    }
+  }
+
+  String _formatCloudError(String raw) {
+    if (raw.contains('Failed to fetch') || raw.contains('ClientException') || raw.contains('Connection refused')) {
+      return 'Cloud Run service unreachable at ${_cloudClient.baseUrl}. Verify server is running on port 8080 or tap "Retry Connection".';
+    }
+    return 'Cloud Run connection error: $raw';
+  }
+
+  Future<void> _handleLoadGemmaWeights() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('⚡ Initializing Gemma 4 on-device weights (~1.46 GB)...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    final success = await _edgeManager.loadGemmaWeights(
+      onProgress: (loaded, total, pct) {
+        if (mounted) setState(() {});
+      },
+    );
+    if (mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Gemma 4 on-device weights loaded successfully! (0 KB Cloud Egress)'),
+            backgroundColor: SepiaTheme.sage,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ ${_edgeManager.gemmaError ?? "Model weight initialization failed"}'),
+            backgroundColor: SepiaTheme.terracotta,
+          ),
+        );
+      }
+      setState(() {});
     }
   }
 
@@ -1055,6 +1198,13 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
                     : const SizedBox.shrink(),
               ),
 
+              // Gemma Load Pill for on-device weight management
+              GemmaLoadPill(
+                edgeManager: _edgeManager,
+                isCompact: true,
+              ),
+              const SizedBox(width: 8),
+
               // Run Action Button
               ElevatedButton.icon(
                 onPressed: _isEvaluatingAll ? null : _runAllModels,
@@ -1238,6 +1388,55 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
           ),
           const Divider(height: 18, color: SepiaTheme.border),
 
+          // On-device Gemma Weight Readiness Banner
+          if ((entry.modelId == 'gemma-4-2b' || entry.modelId == 'gemma-4-a4b') &&
+              !_edgeManager.isGemmaWeightsLoaded &&
+              entry.responseText.isEmpty &&
+              entry.error == null) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: SepiaTheme.paper,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: SepiaTheme.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.bolt, size: 16, color: SepiaTheme.amber),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Weights not resident (~1.46 GB)',
+                      style: SepiaTheme.sans(fontSize: 11, color: SepiaTheme.inkMuted),
+                    ),
+                  ),
+                  if (_edgeManager.isGemmaDownloading)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: SepiaTheme.sage),
+                    )
+                  else
+                    InkWell(
+                      onTap: _handleLoadGemmaWeights,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        child: Text(
+                          'Load Weights',
+                          style: SepiaTheme.sans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: SepiaTheme.sage,
+                          ).copyWith(decoration: TextDecoration.underline),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+
           // Rating Panel (Total score and 4 rubrics)
           if (scoreCard != null) ...[
             Row(
@@ -1375,23 +1574,84 @@ class _DeviceTestBenchState extends State<DeviceTestBench> {
 
           if (entry.error != null) ...[
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: SepiaTheme.terracotta.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: SepiaTheme.terracotta.withValues(alpha: 0.3)),
               ),
-              child: Row(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline, size: 14, color: SepiaTheme.terracotta),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      entry.error!,
-                      style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.terracotta),
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline, size: 16, color: SepiaTheme.terracotta),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          entry.error!,
+                          style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.ink, height: 1.3),
+                        ),
+                      ),
+                    ],
                   ),
+                  if (entry.modelId == 'gemma-4-2b' || entry.modelId == 'gemma-4-a4b') ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _edgeManager.isGemmaDownloading ? null : _handleLoadGemmaWeights,
+                          icon: const Icon(Icons.bolt, size: 14),
+                          label: Text(_edgeManager.isGemmaDownloading ? 'Downloading weights...' : 'Load Gemma 4 Weights'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: SepiaTheme.ink,
+                            foregroundColor: SepiaTheme.paper,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            textStyle: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => _runSingleModel('gemini-3.8-flash'),
+                          icon: const Icon(Icons.cloud_queue_rounded, size: 14, color: SepiaTheme.terracotta),
+                          label: Text(
+                            'Run on Cloud Run',
+                            style: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.w600, color: SepiaTheme.ink),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: SepiaTheme.border),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else if (entry.modelId == 'gemini-3.8-flash') ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () => _runSingleModel('gemini-3.8-flash'),
+                          icon: const Icon(Icons.refresh_rounded, size: 14),
+                          label: const Text('Retry Connection'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: SepiaTheme.ink,
+                            foregroundColor: SepiaTheme.paper,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            textStyle: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Text(
+                          'Target: ${_cloudClient.baseUrl}',
+                          style: SepiaTheme.mono(fontSize: 10, color: SepiaTheme.inkMuted),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

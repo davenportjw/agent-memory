@@ -112,6 +112,112 @@ class LocalMemoryService {
   int get assistantWorkingTurnsCount =>
       _workingContext.where((t) => !t.sessionId.toLowerCase().contains('lorecraft')).length;
 
+  /// Classification predicate: returns true if a durable node belongs to LoreCraft game domain
+  bool isLoreCraftNode(DurableKnowledgeNode node) {
+    if (node.id.toLowerCase().contains('lore')) return true;
+    final cat = node.category.toUpperCase();
+    if (cat.contains('LORE') || cat == 'WORLD_CANON' || cat == 'TACTICAL_SECURITY') {
+      return true;
+    }
+    if (node.sourceEpisodeIds.any((id) => id.toLowerCase().contains('lore'))) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Classification predicate: returns true if a durable node belongs to Assistant shell domain
+  bool isAssistantNode(DurableKnowledgeNode node) => !isLoreCraftNode(node);
+
+  /// Classification predicate: returns true if an edge anchor belongs to LoreCraft game domain
+  bool isLoreCraftAnchor(MemoryAnchor anchor) {
+    if (anchor.anchorId.toLowerCase().contains('lore')) return true;
+    final cat = anchor.category.toUpperCase();
+    if (cat.contains('LORE') || cat == 'WORLD_CANON' || cat == 'TACTICAL_SECURITY') {
+      return true;
+    }
+    return false;
+  }
+
+  /// Classification predicate: returns true if an edge anchor belongs to Assistant shell domain
+  bool isAssistantAnchor(MemoryAnchor anchor) => !isLoreCraftAnchor(anchor);
+
+  /// Classification predicate: returns true if a topic entry belongs to LoreCraft game domain
+  bool isLoreCraftTopic(MasterIndexEntry entry) {
+    if (entry.topicId.toLowerCase().contains('lore')) return true;
+    final cat = entry.category.toUpperCase();
+    if (cat.contains('LORE') || cat == 'WORLD_CANON' || cat == 'TACTICAL_SECURITY' || cat == 'ARTIFACT_SCHEMATICS') {
+      return true;
+    }
+    return false;
+  }
+
+  /// Classification predicate: returns true if a topic entry belongs to Assistant shell domain
+  bool isAssistantTopic(MasterIndexEntry entry) => !isLoreCraftTopic(entry);
+
+  /// Returns durable knowledge nodes filtered by source: 'ALL', 'LORECRAFT', or 'ASSISTANT'
+  List<DurableKnowledgeNode> getDurableNodesForSource(String? sourceFilter) {
+    if (sourceFilter == null || sourceFilter.isEmpty || sourceFilter == 'ALL') {
+      return List.unmodifiable(_durableNodes);
+    }
+    if (sourceFilter == 'LORECRAFT') {
+      return _durableNodes.where(isLoreCraftNode).toList();
+    }
+    if (sourceFilter == 'ASSISTANT') {
+      return _durableNodes.where(isAssistantNode).toList();
+    }
+    return List.unmodifiable(_durableNodes);
+  }
+
+  /// Returns edge anchors filtered by source: 'ALL', 'LORECRAFT', or 'ASSISTANT'
+  List<MemoryAnchor> getEdgeAnchorsForSource(String? sourceFilter) {
+    final anchors = _activeEdgeBundle?.anchors ?? [];
+    if (sourceFilter == null || sourceFilter.isEmpty || sourceFilter == 'ALL') {
+      return List.unmodifiable(anchors);
+    }
+    if (sourceFilter == 'LORECRAFT') {
+      return anchors.where(isLoreCraftAnchor).toList();
+    }
+    if (sourceFilter == 'ASSISTANT') {
+      return anchors.where(isAssistantAnchor).toList();
+    }
+    return List.unmodifiable(anchors);
+  }
+
+  /// Returns master index topics filtered by source: 'ALL', 'LORECRAFT', or 'ASSISTANT'
+  List<MasterIndexEntry> getMasterIndexEntriesForSource(String? sourceFilter) {
+    if (sourceFilter == null || sourceFilter.isEmpty || sourceFilter == 'ALL') {
+      return List.unmodifiable(_masterIndex.entries);
+    }
+    if (sourceFilter == 'LORECRAFT') {
+      return _masterIndex.entries.where(isLoreCraftTopic).toList();
+    }
+    if (sourceFilter == 'ASSISTANT') {
+      return _masterIndex.entries.where(isAssistantTopic).toList();
+    }
+    return List.unmodifiable(_masterIndex.entries);
+  }
+
+  /// Total count of memory items for LoreCraft (working turns + queue + durable nodes + anchors)
+  int getLoreCraftItemsCount() =>
+      loreCraftWorkingTurnsCount +
+      getIngestionQueueForSource('LORECRAFT').length +
+      getDurableNodesForSource('LORECRAFT').length +
+      getEdgeAnchorsForSource('LORECRAFT').length;
+
+  /// Total count of memory items for Assistant (working turns + queue + durable nodes + anchors)
+  int getAssistantItemsCount() =>
+      assistantWorkingTurnsCount +
+      getIngestionQueueForSource('ASSISTANT').length +
+      getDurableNodesForSource('ASSISTANT').length +
+      getEdgeAnchorsForSource('ASSISTANT').length;
+
+  /// Total count of all memory items
+  int getAllItemsCount() =>
+      _workingContext.length +
+      _ingestionQueue.length +
+      _durableNodes.length +
+      (_activeEdgeBundle?.anchors.length ?? 0);
+
   /// Appends a new episodic turn to local working context
   void commitTurn(EpisodicTurn turn) {
     _workingContext.insert(0, turn);
@@ -123,12 +229,19 @@ class LocalMemoryService {
 
   String baseUrl = const String.fromEnvironment(
     'CLOUD_BACKEND_URL',
-    defaultValue: 'http://localhost:8080',
+    defaultValue: 'https://distributed-ai-backend-834476222725.us-central1.run.app',
   );
 
+  void setBaseUrl(String url) {
+    baseUrl = url;
+    notifyListeners();
+  }
+
   /// Trigger offline cloud consolidation via Gemini 3.8 Flash on Cloud Run
-  Future<void> triggerOfflineConsolidation() async {
-    if (_isConsolidating) return;
+  Future<ConsolidationResult> triggerOfflineConsolidation() async {
+    if (_isConsolidating) {
+      return const ConsolidationResult(success: false, errorMessage: 'Consolidation already running');
+    }
     _isConsolidating = true;
     notifyListeners();
 
@@ -138,56 +251,49 @@ class LocalMemoryService {
       // Step 1: Ingest pending turns to Cloud Run
       for (final episode in _ingestionQueue) {
         final ingestUri = Uri.parse('$baseUrl/api/memory/ingest');
-        await client.post(
+        final ingestRes = await client.post(
           ingestUri,
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(episode.toJson()),
         );
+        if (ingestRes.statusCode != 200) {
+          throw Exception('Backend /api/memory/ingest failed: ${ingestRes.statusCode} ${ingestRes.body}');
+        }
         episode.status = 'CONSOLIDATED';
       }
 
       // Step 2: Trigger Gemini 3.8 Flash offline consolidation loop on Cloud Run
+      // Pass session_id: '' so server consolidates across all active sessions
       final consolidateUri = Uri.parse('$baseUrl/api/memory/consolidate');
       final consolidateRes = await client.post(
         consolidateUri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'session_id': 'sess_client_consolidation',
+          'session_id': '',
           'auto_publish_bundle': true,
         }),
       );
 
-      if (consolidateRes.statusCode == 200) {
-        final data = jsonDecode(consolidateRes.body) as Map<String, dynamic>;
-        final consolidatedNodes = data['consolidated_nodes'] as List<dynamic>? ?? [];
+      if (consolidateRes.statusCode != 200) {
+        throw Exception('Backend /api/memory/consolidate failed: ${consolidateRes.statusCode} ${consolidateRes.body}');
+      }
 
-        final now = DateTime.now();
-        for (final item in consolidatedNodes) {
-          final m = item as Map<String, dynamic>;
-          final name = m['entity_name'] as String? ?? 'Durable Node';
-          final existingIdx = _durableNodes.indexWhere((n) => n.entityName.toLowerCase() == name.toLowerCase());
+      final data = jsonDecode(consolidateRes.body) as Map<String, dynamic>;
+      final consolidatedNodes = (data['nodes'] as List<dynamic>?) ??
+          (data['consolidated_nodes'] as List<dynamic>?) ??
+          [];
+      final turnsConsolidated = (data['consolidated_turns'] as num?)?.toInt() ?? _ingestionQueue.length;
+      final nodesUpdatedCount = (data['nodes_updated'] as num?)?.toInt() ?? consolidatedNodes.length;
 
-          final node = DurableKnowledgeNode(
-            id: m['node_id'] as String? ?? 'node-${DateTime.now().millisecondsSinceEpoch}',
-            entityName: name,
-            category: m['category'] as String? ?? 'SYSTEM_ARCHITECTURE',
-            summary: m['summary'] as String? ?? '',
-            confidence: (m['confidence'] as num?)?.toDouble() ?? 0.95,
-            relations: [],
-            sourceEpisodeIds: (m['source_episodes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-            resolvedContradictions: (m['resolved_contradictions'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-            contradictionRecords: (m['contradiction_records'] as List<dynamic>?)
-                    ?.map((r) => ContradictionRecord.fromJson(r as Map<String, dynamic>))
-                    .toList() ??
-                [],
-            lastUpdated: now,
-          );
+      for (final item in consolidatedNodes) {
+        final m = item as Map<String, dynamic>;
+        final node = DurableKnowledgeNode.fromJson(m);
+        final existingIdx = _durableNodes.indexWhere((n) => n.entityName.toLowerCase() == node.entityName.toLowerCase());
 
-          if (existingIdx >= 0) {
-            _durableNodes[existingIdx] = node;
-          } else {
-            _durableNodes.insert(0, node);
-          }
+        if (existingIdx >= 0) {
+          _durableNodes[existingIdx] = node;
+        } else {
+          _durableNodes.insert(0, node);
         }
       }
 
@@ -201,20 +307,51 @@ class LocalMemoryService {
 
       client.close();
       _ingestionQueue.clear();
+      return ConsolidationResult(
+        success: true,
+        turnsConsolidated: turnsConsolidated,
+        nodesUpdated: nodesUpdatedCount,
+      );
     } catch (e) {
       // Local on-device fallback consolidation when offline or cloud unreachable
       final now = DateTime.now();
+      int localNodesCreated = 0;
       for (final episode in _ingestionQueue) {
-        for (final entity in episode.entitiesExtracted) {
+        if (episode.entitiesExtracted.isNotEmpty) {
+          for (final entity in episode.entitiesExtracted) {
+            final existingIdx = _durableNodes.indexWhere(
+              (n) => n.entityName.toLowerCase() == entity.entityValue.toLowerCase(),
+            );
+            final node = DurableKnowledgeNode(
+              id: 'node-local-${DateTime.now().millisecondsSinceEpoch}-${localNodesCreated++}',
+              entityName: entity.entityValue,
+              category: entity.entityType,
+              summary: 'Consolidated on-device from episode ${episode.id}: ${episode.userPrompt}',
+              confidence: entity.confidence,
+              relations: const [],
+              sourceEpisodeIds: [episode.id],
+              resolvedContradictions: const [],
+              contradictionRecords: const [],
+              lastUpdated: now,
+            );
+            if (existingIdx >= 0) {
+              _durableNodes[existingIdx] = node;
+            } else {
+              _durableNodes.insert(0, node);
+            }
+          }
+        } else {
+          final trimmedPrompt = episode.userPrompt.trim();
+          final entityTitle = trimmedPrompt.length > 36 ? '${trimmedPrompt.substring(0, 36)}...' : trimmedPrompt;
           final existingIdx = _durableNodes.indexWhere(
-            (n) => n.entityName.toLowerCase() == entity.entityValue.toLowerCase(),
+            (n) => n.entityName.toLowerCase() == entityTitle.toLowerCase(),
           );
           final node = DurableKnowledgeNode(
-            id: 'node-local-${DateTime.now().millisecondsSinceEpoch}',
-            entityName: entity.entityValue,
-            category: entity.entityType,
+            id: 'node-local-${DateTime.now().millisecondsSinceEpoch}-${localNodesCreated++}',
+            entityName: entityTitle.isNotEmpty ? entityTitle : 'Local Episode Context',
+            category: 'USER_PREFERENCE',
             summary: 'Consolidated on-device from episode ${episode.id}: ${episode.userPrompt}',
-            confidence: entity.confidence,
+            confidence: 0.85,
             relations: const [],
             sourceEpisodeIds: [episode.id],
             resolvedContradictions: const [],
@@ -226,16 +363,25 @@ class LocalMemoryService {
           } else {
             _durableNodes.insert(0, node);
           }
+          localNodesCreated++;
         }
         episode.status = 'CONSOLIDATED';
       }
+      final turnsDrained = _ingestionQueue.length;
       _ingestionQueue.clear();
       _activeEdgeBundle ??= CompactEdgeMemoryBundle(
         bundleVersion: 1,
         createdAt: now,
-        totalAnchors: 0,
+        totalAnchors: _durableNodes.length,
         sizeBytes: 1024,
         anchors: const [],
+      );
+      return ConsolidationResult(
+        success: true,
+        turnsConsolidated: turnsDrained,
+        nodesUpdated: localNodesCreated,
+        errorMessage: e.toString(),
+        isOfflineFallback: true,
       );
     } finally {
       _isConsolidating = false;
@@ -447,8 +593,12 @@ class LocalMemoryService {
   // ==========================================
 
   /// Builds a hierarchical representation of Local Memory (SQLite / RAM)
-  MemoryTreeNode getLocalMemoryTree() {
-    final workingChildren = _workingContext.map((t) {
+  MemoryTreeNode getLocalMemoryTree({String? sourceFilter}) {
+    final turns = getWorkingContextForSource(sourceFilter);
+    final queue = getIngestionQueueForSource(sourceFilter);
+    final anchors = getEdgeAnchorsForSource(sourceFilter);
+
+    final workingChildren = turns.map((t) {
       return MemoryTreeNode(
         id: 'turn-${t.id}',
         label: t.userPrompt,
@@ -467,7 +617,7 @@ class LocalMemoryService {
       );
     }).toList();
 
-    final queueChildren = _ingestionQueue.map((q) {
+    final queueChildren = queue.map((q) {
       return MemoryTreeNode(
         id: 'queue-${q.id}',
         label: q.userPrompt,
@@ -479,7 +629,7 @@ class LocalMemoryService {
       );
     }).toList();
 
-    final anchorChildren = (_activeEdgeBundle?.anchors ?? []).map((a) {
+    final anchorChildren = anchors.map((a) {
       return MemoryTreeNode(
         id: 'anchor-${a.anchorId}',
         label: a.key,
@@ -491,23 +641,27 @@ class LocalMemoryService {
       );
     }).toList();
 
+    final filterLabel = (sourceFilter != null && sourceFilter.isNotEmpty && sourceFilter != 'ALL')
+        ? ' · [$sourceFilter Filter]'
+        : '';
+
     return MemoryTreeNode(
       id: 'local-root',
-      label: 'Client Local Memory (SQLite WASM / RAM)',
+      label: 'Client Local Memory (SQLite WASM / RAM)$filterLabel',
       subtitle: 'Zero cloud egress storage & active prompt anchors',
       nodeType: MemoryNodeType.storeRoot,
-      metric: '${_workingContext.length} turns · ${_activeEdgeBundle?.sizeKb.toStringAsFixed(1)} KB cache',
+      metric: '${turns.length} turns · ${_activeEdgeBundle?.sizeKb.toStringAsFixed(1)} KB cache',
       children: [
         MemoryTreeNode(
           id: 'local-working-context',
-          label: 'Active Working Context (${_workingContext.length} turns)',
+          label: 'Active Working Context (${turns.length} turns)',
           subtitle: 'Volatile scratchpad & recent conversational turns',
           nodeType: MemoryNodeType.category,
           children: workingChildren,
         ),
         MemoryTreeNode(
           id: 'local-ingestion-queue',
-          label: 'Pending Ingestion Queue (${_ingestionQueue.length} items)',
+          label: 'Pending Ingestion Queue (${queue.length} items)',
           subtitle: 'Sanitized turns awaiting asynchronous cloud batch consolidation',
           nodeType: MemoryNodeType.category,
           children: queueChildren,
@@ -525,14 +679,15 @@ class LocalMemoryService {
   }
 
   /// Builds a hierarchical representation of Cloud Knowledge Graph (Firestore)
-  MemoryTreeNode getCloudKnowledgeTree() {
+  MemoryTreeNode getCloudKnowledgeTree({String? sourceFilter}) {
+    final nodes = getDurableNodesForSource(sourceFilter);
     final Map<String, List<DurableKnowledgeNode>> grouped = {};
-    for (final node in _durableNodes) {
+    for (final node in nodes) {
       grouped.putIfAbsent(node.category, () => []).add(node);
     }
 
     final categoryChildren = grouped.entries.map((entry) {
-      final nodes = entry.value.map((n) {
+      final categoryNodes = entry.value.map((n) {
         final relationChildren = n.relations.map((r) => MemoryTreeNode(
           id: 'rel-${n.id}-${r.targetNodeId}',
           label: '${r.predicate} ➔ ${r.targetNodeId}',
@@ -567,39 +722,46 @@ class LocalMemoryService {
       return MemoryTreeNode(
         id: 'cat-${entry.key}',
         label: entry.key,
-        subtitle: '${nodes.length} consolidated knowledge entities',
+        subtitle: '${categoryNodes.length} consolidated knowledge entities',
         nodeType: MemoryNodeType.category,
-        children: nodes,
+        children: categoryNodes,
       );
     }).toList();
 
+    final filterLabel = (sourceFilter != null && sourceFilter.isNotEmpty && sourceFilter != 'ALL')
+        ? ' · [$sourceFilter Filter]'
+        : '';
+
     return MemoryTreeNode(
       id: 'cloud-root',
-      label: 'Cloud Firestore Durable Knowledge Graph (/durable_nodes)',
+      label: 'Cloud Firestore Durable Knowledge Graph (/durable_nodes)$filterLabel',
       subtitle: 'Cross-session semantic memory consolidated via Gemini 3.8 Flash',
       nodeType: MemoryNodeType.storeRoot,
-      metric: '${_durableNodes.length} nodes',
+      metric: '${nodes.length} nodes',
       children: categoryChildren,
     );
   }
 
   /// Builds a hierarchical structural diff tree comparing Local Edge state to Cloud Firestore state.
-  MemoryTreeNode getEdgeCloudDiffTree() {
-    final edgeAnchors = _activeEdgeBundle?.anchors ?? [];
+  MemoryTreeNode getEdgeCloudDiffTree({String? sourceFilter}) {
+    final edgeAnchors = getEdgeAnchorsForSource(sourceFilter);
+    final queueTurns = getIngestionQueueForSource(sourceFilter);
+    final durableNodes = getDurableNodesForSource(sourceFilter);
+    final topicEntries = getMasterIndexEntriesForSource(sourceFilter);
 
     // Group durable nodes by category
     final Map<String, List<DurableKnowledgeNode>> cloudByCategory = {};
-    for (final node in _durableNodes) {
+    for (final node in durableNodes) {
       cloudByCategory.putIfAbsent(node.category, () => []).add(node);
     }
 
     int syncedCount = 0;
     int modifiedCount = 0;
     int cloudOnlyCount = 0;
-    int edgeOnlyCount = _ingestionQueue.length;
+    int edgeOnlyCount = queueTurns.length;
 
     // 1. Pending Ingestion Branch (Edge Only turns)
-    final List<MemoryTreeNode> pendingChildren = _ingestionQueue.map((turn) {
+    final List<MemoryTreeNode> pendingChildren = queueTurns.map((turn) {
       return MemoryTreeNode(
         id: 'diff-turn-${turn.id}',
         label: turn.userPrompt,
@@ -621,10 +783,10 @@ class LocalMemoryService {
 
     final pendingBranch = MemoryTreeNode(
       id: 'diff-branch-pending',
-      label: 'Local Ingestion Queue (${_ingestionQueue.length} turns awaiting cloud)',
+      label: 'Local Ingestion Queue (${queueTurns.length} turns awaiting cloud)',
       subtitle: 'Volatile local episodes pending asynchronous batch consolidation to Firestore',
       nodeType: MemoryNodeType.category,
-      metric: '${_ingestionQueue.length} pending',
+      metric: '${queueTurns.length} pending',
       children: pendingChildren.isNotEmpty
           ? pendingChildren
           : [
@@ -801,16 +963,16 @@ class LocalMemoryService {
     final durableBranch = MemoryTreeNode(
       id: 'diff-branch-durable',
       label: 'Durable Knowledge vs. Edge Anchors ($syncedCount synced, $modifiedCount conflicts, $cloudOnlyCount dormant)',
-      subtitle: 'Comparison between ${_durableNodes.length} cloud durable nodes and ${edgeAnchors.length} active edge anchors',
+      subtitle: 'Comparison between ${durableNodes.length} cloud durable nodes and ${edgeAnchors.length} active edge anchors',
       nodeType: MemoryNodeType.category,
       children: categoryBranches,
     );
 
     // 3. Topic Cache Delta (Four-Stage Architecture)
-    final localCachedTopics = _masterIndex.entries.where((e) => e.isCachedLocally).toList();
-    final cloudDreamTopics = _masterIndex.entries.where((e) => !e.isCachedLocally).toList();
+    final localCachedTopics = topicEntries.where((e) => e.isCachedLocally).toList();
+    final cloudDreamTopics = topicEntries.where((e) => !e.isCachedLocally).toList();
 
-    final topicChildren = _masterIndex.entries.map((entry) {
+    final topicChildren = topicEntries.map((entry) {
       if (entry.isCachedLocally) {
         return MemoryTreeNode(
           id: 'diff-topic-${entry.topicId}',
@@ -819,6 +981,7 @@ class LocalMemoryService {
           nodeType: MemoryNodeType.diffSynced,
           status: 'LOCAL CACHE',
           metric: '${entry.tokenEstimate} tokens',
+          metadata: {'entry': entry},
         );
       } else {
         return MemoryTreeNode(
@@ -828,6 +991,7 @@ class LocalMemoryService {
           nodeType: MemoryNodeType.diffRemoved,
           status: 'CLOUD DREAM ONLY',
           metric: '${entry.tokenEstimate} tokens',
+          metadata: {'entry': entry},
         );
       }
     }).toList();
@@ -868,19 +1032,27 @@ class LocalMemoryService {
       ],
     );
 
-    final totalDurable = _durableNodes.length;
+    final totalDurable = durableNodes.length;
     final totalAnchors = edgeAnchors.length;
     final bundleSizeKb = _activeEdgeBundle?.sizeKb.toStringAsFixed(1) ?? '0.0';
     final isWithinBudget = _activeEdgeBundle?.isWithinBudget ?? true;
 
+    final filterLabel = (sourceFilter != null && sourceFilter.isNotEmpty && sourceFilter != 'ALL')
+        ? ' · [$sourceFilter Filter]'
+        : '';
+
+    final filterSubtitle = (sourceFilter != null && sourceFilter.isNotEmpty && sourceFilter != 'ALL')
+        ? 'Filtered by $sourceFilter · Local SQLite/RAM vs. Cloud Firestore Graph'
+        : 'Hierarchical structural delta: Local SQLite/RAM vs. Cloud Firestore Graph';
+
     return MemoryTreeNode(
       id: 'diff-root',
-      label: 'Edge-to-Cloud Memory Difference Tree',
-      subtitle: 'Hierarchical structural delta: Local SQLite/RAM vs. Cloud Firestore Graph',
+      label: 'Edge-to-Cloud Memory Difference Tree$filterLabel',
+      subtitle: filterSubtitle,
       nodeType: MemoryNodeType.storeRoot,
-      metric: '$syncedCount synced · ${_ingestionQueue.length} pending · $cloudOnlyCount cloud-only · $modifiedCount conflicts',
+      metric: '$syncedCount synced · ${queueTurns.length} pending · $cloudOnlyCount cloud-only · $modifiedCount conflicts',
       metadata: {
-        'pendingCount': _ingestionQueue.length,
+        'pendingCount': queueTurns.length,
         'syncedCount': syncedCount,
         'cloudOnlyCount': cloudOnlyCount,
         'modifiedCount': modifiedCount,

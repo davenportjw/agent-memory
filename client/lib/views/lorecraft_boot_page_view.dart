@@ -29,6 +29,7 @@ class LoreCraftBootPageView extends StatefulWidget {
 
 class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
   bool _isPerformingAction = false;
+  bool _showEfficacyRater = false;
   String? _statusBannerMessage;
   String? _selectedTopicId;
   String? _selectedTopicContent;
@@ -235,10 +236,42 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
                 _buildPattern4Card(masterIndex),
                 const SizedBox(height: 20),
 
-                // 3. EASY-TO-DIGEST EDUCATIONAL EFFICACY RATER (Everything Mode Only)
+                // 3. EDUCATIONAL EFFICACY RATER (Hidden by default; toggleable in Everything Mode)
                 if (!AppModeService().isSimple) ...[
-                  EducationAssessmentCard(memoryService: widget.memoryService),
-                  const SizedBox(height: 24),
+                  if (_showEfficacyRater) ...[
+                    EducationAssessmentCard(memoryService: widget.memoryService),
+                    const SizedBox(height: 12),
+                  ],
+                  Center(
+                    child: OutlinedButton.icon(
+                      key: const Key('btn_toggle_efficacy_rater'),
+                      onPressed: () {
+                        AudioFeedbackService.instance.playClick();
+                        setState(() {
+                          _showEfficacyRater = !_showEfficacyRater;
+                        });
+                      },
+                      icon: Icon(
+                        _showEfficacyRater ? Icons.visibility_off_outlined : Icons.school_outlined,
+                        size: 14,
+                        color: SepiaTheme.inkMuted,
+                      ),
+                      label: Text(
+                        _showEfficacyRater ? 'HIDE EFFICACY RATER' : 'SHOW EFFICACY RATER',
+                        style: SepiaTheme.mono(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: SepiaTheme.inkMuted,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: SepiaTheme.borderSubtle),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                 ],
 
                 // 4. PRIMARY CALL TO ACTION
@@ -341,9 +374,7 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
           const SizedBox(height: 6),
           Text(
             'Minimum Context Hydration & Lifecycle Governance for Gemma 4 int4 on ${widget.memoryService.environmentalState.hardwareEngine.contains("Android") ? "Android LiteRT" : "Apple Silicon"}. '
-            'Rather than loading monolithic memory blobs, the Envoy edge agent loads only the minimal operational triad: '
-            'Core Directives, the Cloud Dream Master Index TOC, and Local Hardware Environment. All semantic knowledge is paged conditionally, '
-            'cached predictively on state shifts, and reconciled asynchronously via 3 AM Cloud Dream Deltas.',
+            'Loads core directives, TOC index, and hardware state; pages semantic memory on-demand.',
             style: SepiaTheme.sans(
               fontSize: 13,
               height: 1.45,
@@ -737,8 +768,7 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
           ),
           const SizedBox(height: 6),
           Text(
-            'When the edge agent spins up, it loads only the absolute minimum context required to triage events and route tasks. '
-            'Full historical episodes and heavy semantic documents remain in cloud cold storage.',
+            'Spins up with minimal context (<4 KB) for event triage and routing. Historical episodes remain in cloud cold storage.',
             style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.inkSecondary, height: 1.4),
           ),
           const SizedBox(height: 14),
@@ -749,21 +779,21 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
                 _buildTriadItem(
                   title: 'Core Directives & Persona',
                   subtitle: '${directives.allocatedTokens} Tokens Allocated',
-                  details: 'Prompt ID: "${directives.systemPromptId}". Static behavioral invariants compiled into model runtime.',
+                  details: 'Prompt ID: "${directives.systemPromptId}". Invariant runtime behavior.',
                   icon: Icons.psychology,
                   badge: 'STATIC',
                 ),
                 _buildTriadItem(
                   title: 'Master Index (The "Map")',
                   subtitle: '${masterIndex.calculatedSizeBytes} Bytes • ${masterIndex.totalTopicCount} Topics',
-                  details: 'TOC directory from Cloud Dream Daemon v${masterIndex.version}. Knows what it knows without loading full files.',
+                  details: 'Cloud Dream TOC v${masterIndex.version}. Catalog of available topics.',
                   icon: Icons.map,
                   badge: 'COMPRESSED TOC',
                 ),
                 _buildTriadItem(
                   title: 'Local Environmental State',
                   subtitle: '${widget.memoryService.environmentalState.networkStatus}',
-                  details: 'Immediate hardware telemetry: battery, network status, thermal state, and LiteRT WebGPU profile.',
+                  details: 'Live device battery, network, thermals, and engine profile.',
                   icon: Icons.sensors,
                   badge: 'LIVE HARDWARE',
                 ),
@@ -906,9 +936,7 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
           ),
           const SizedBox(height: 6),
           Text(
-            'The vast majority of semantic memory is paged in conditionally. The agent inspects its Master Index and calls '
-            'fetch_memory_topic(topic_id) only when a task demands historical context. Context windows are strictly task-bound: '
-            'injected memory is evicted immediately upon workflow completion to keep latency and RAM minimal.',
+            'Pages semantic memory on-demand via fetch_memory_topic(topic_id). Injected context evicts immediately upon task completion to keep RAM minimal.',
             style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.inkSecondary, height: 1.4),
           ),
           const SizedBox(height: 14),
@@ -973,7 +1001,7 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Page full semantic files from the cloud into edge local memory on-demand:',
+                  'Page semantic topics into local cache on-demand:',
                   style: SepiaTheme.sans(fontSize: 11, color: SepiaTheme.inkSecondary),
                 ),
                 const SizedBox(height: 8),
@@ -1151,7 +1179,7 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Demonstrates injecting ~480 tokens for "Undercity Sluice Breach Triage" and immediately dropping them once the action finishes:',
+                  'Injects ~480 tokens for task triage and evicts immediately on completion:',
                   style: SepiaTheme.sans(fontSize: 11, color: SepiaTheme.inkSecondary),
                 ),
                 const SizedBox(height: 8),
@@ -1318,14 +1346,11 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
           ),
           const SizedBox(height: 6),
           Text(
-            'For edge devices where real-time voice or game dialogue latency is critical, waiting for a conditional cloud fetch '
-            'during a turn is too slow. The agent detects shifts in environmental state (e.g. entering a new sector) and '
-            'pre-emptively fetches relevant context files into local memory before the user even speaks.',
+            'Prefetches sector context into local cache on player state shifts for 0ms conversational latency.',
             style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.inkSecondary, height: 1.4),
           ),
           const SizedBox(height: 14),
 
-          // Simulation buttons for state shifts
           // Simulation buttons for state shifts
           Text(
             'Simulate Player Sector State Shifts:',
@@ -1581,9 +1606,7 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Context loading isn\'t just active queries—it receives the results of cloud overnight consolidation. '
-            'During 3 AM low-activity periods (plugged in on Wi-Fi), the Cloud Dream Daemon pushes a delta update: '
-            'the edge agent overwrites its local Master Index and invalidates cached topic files modified or deprecated by cloud reconciliation.',
+            'Overnight cloud consolidation pushes delta updates at 3 AM on Wi-Fi, updating Master Index and invalidating stale cache entries.',
             style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.inkSecondary, height: 1.4),
           ),
           const SizedBox(height: 12),
@@ -1683,7 +1706,7 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Edge Memory Architecture Hydrated',
+                  'Edge Memory Hydrated',
                   style: SepiaTheme.sans(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -1692,7 +1715,7 @@ class _LoreCraftBootPageViewState extends State<LoreCraftBootPageView> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Minimum context verified. Proceed to tactical mission briefing and sector contacts.',
+                  'Base context loaded. Ready to initialize Envoy.',
                   style: SepiaTheme.sans(fontSize: 12, color: SepiaTheme.inkSecondary),
                 ),
               ],

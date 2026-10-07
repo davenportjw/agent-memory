@@ -6,8 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -166,6 +170,7 @@ func (s *Server) SetupRouter() *Router {
 	r.Get("/api/memory/bundle", s.HandleMemoryBundle)
 	r.Post("/api/eval/benchmark", s.HandleEvalBenchmark)
 	r.Get("/api/policy/firebase", s.HandleFirebasePolicy)
+	r.Get("/api/weights/", s.HandleModelWeights)
 
 	// Preflight OPTIONS routes
 	r.Options("/healthz", s.HandleOptions)
@@ -176,12 +181,84 @@ func (s *Server) SetupRouter() *Router {
 	r.Options("/api/memory/bundle", s.HandleOptions)
 	r.Options("/api/eval/benchmark", s.HandleOptions)
 	r.Options("/api/policy/firebase", s.HandleOptions)
+	r.Options("/api/weights/", s.HandleOptions)
 
 	return r
 }
 
 func (s *Server) HandleOptions(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// HandleModelWeights serves or streams Gemma 4 on-device model weights from local storage or GCS staging bucket.
+func (s *Server) HandleModelWeights(w http.ResponseWriter, req *http.Request) {
+	if req.Method == http.MethodOptions {
+		s.HandleOptions(w, req)
+		return
+	}
+
+	filename := strings.TrimPrefix(req.URL.Path, "/api/weights/")
+	filename = filepath.Clean(filename)
+	if filename == "" || filename == "." || filename == "/" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "Model weight filename is required (e.g. /api/weights/gemma-4-2b-it-int4.bin)",
+		})
+		return
+	}
+
+	// 1. Check local filesystem for model weights
+	localPaths := []string{
+		filepath.Join("weights", filename),
+		filepath.Join("../weights", filename),
+		filepath.Join("../../weights", filename),
+		filepath.Join("models", filename),
+		filepath.Join("../models", filename),
+	}
+
+	for _, p := range localPaths {
+		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+			w.Header().Set("Content-Type", "application/octet-stream")
+			http.ServeFile(w, req, p)
+			return
+		}
+	}
+
+	// 2. Query GCS staging bucket via ADC Bearer token
+	stagingBucket := os.Getenv("GCS_STAGING_BUCKET")
+	if stagingBucket == "" {
+		stagingBucket = "davenport-boutique-vertex-staging"
+	}
+
+	gcsURL := fmt.Sprintf("https://storage.googleapis.com/storage/v1/b/%s/o/weights%%2F%s?alt=media",
+		stagingBucket, url.PathEscape(filename))
+
+	tokenSource := vertex.NewADCTokenSource(nil)
+	token, err := tokenSource.Token(req.Context())
+	if err == nil && token != "" {
+		clientReq, err := http.NewRequestWithContext(req.Context(), http.MethodGet, gcsURL, nil)
+		if err == nil {
+			clientReq.Header.Set("Authorization", "Bearer "+token)
+			resp, err := http.DefaultClient.Do(clientReq)
+			if err == nil && resp.StatusCode == http.StatusOK {
+				defer resp.Body.Close()
+				w.Header().Set("Content-Type", "application/octet-stream")
+				if cl := resp.Header.Get("Content-Length"); cl != "" {
+					w.Header().Set("Content-Length", cl)
+				}
+				w.WriteHeader(http.StatusOK)
+				_, _ = io.Copy(w, resp.Body)
+				return
+			}
+			if resp != nil {
+				resp.Body.Close()
+			}
+		}
+	}
+
+	writeJSON(w, http.StatusNotFound, map[string]string{
+		"error":       fmt.Sprintf("Gemma 4 model weights '%s' not resident on local server or GCS staging bucket gs://%s/weights/", filename, stagingBucket),
+		"instruction": "Push model weights via ADB or place in weights/ directory",
+	})
 }
 
 // HandleHealthz verifies operational status, project ID, and model configuration.

@@ -86,10 +86,15 @@ The `MemoryLifecycleStudio` (`client/lib/views/memory_lifecycle_studio.dart`) pr
    - **Cell 2**: Short-Term Memory (SQLite & Ingestion Queue) with Queue Drain control.
    - **Cell 3**: Long-Term Memory (Cloud Knowledge Graph) with Gemini 3.8 Flash Consolidation trigger.
    - **Cell 4**: Edge Bundle Invariant (<50 KB) with Bundle Repacker control.
-3. **Hierarchical Dual-Tree Inspector** (`MemoryTreeView`):
-   - Renders the hierarchical tree structure of the Local Memory Cache (SQLite/RAM) alongside the Cloud Firestore Knowledge Graph.
-   - Responsive format: Side-by-side split pane on desktop ($\ge 1050$px) and Segmented Switcher (`[ 📱 Local Tree ]`, `[ ☁️ Cloud Graph ]`, `[ ⚡ Diff ]`) on mobile devices.
-   - Includes interactive Contradiction Resolution Audits detailing active vs. superseded directives, consolidation rationale, and one-click rollback.
+3. **Hero Workstation: Hierarchical Memory Tree & Edge-to-Cloud Diff View** (`MemoryTreeView`):
+   - **Hero Main Star**: Elevated directly below the header/budget meter with `⚡ Edge-Cloud Diff` as the initial default star tab.
+   - **Source Filtering Parity**: Filter pills (`ALL SOURCES`, `⚔ LORECRAFT GAME WORLD`, `💬 ASSISTANT SHELL`) dynamically partition Working Context turns, Ingestion Queue turns, Loaded Anchors, Cloud Durable Entities, and Hierarchical Diff Trees with real-time item counts.
+   - **Memory Movement Tasks (Edge ⮂ Cloud)**:
+     - **Edge ➔ Cloud**: `Consolidate Queue (Gemini 3.8 Flash)` batch consolidation with inline `[Consolidate Queue Now ➔]` affordance.
+     - **Cloud ➔ Edge**: `Repack Edge Bundle (<50KB)` and inline `[Prefetch to Edge Cache]` for unhydrated cloud dream topics.
+     - **Cache Eviction & Management**: Inline `[Evict to Cloud Dream]` for cached topics and `Prune Working Context (LRU)` for active scratchpad control.
+   - **Contradiction Audits & Resolution**: Interactive audit trails showing active vs. superseded directives with one-click contradiction inspection.
+   - **Responsive Format**: Full segmented navigation across devices (`[ 📱 Local Edge Tree ]`, `[ ☁️ Cloud Graph Tree ]`, `[ ⚡ Edge-Cloud Diff ]`, and `[ 🔀 Split View ]` on screens $\ge 1050$px).
 4. **Memory Pattern Simulator** (`MemoryPatternTester`):
    - **Scenario 1: Inject Contradictory Directive**: Simulates conflicting user constraints (e.g., FP16 precision vs. 2 GB RAM limit) and verifies Gemini 3.8 Flash conflict resolution.
    - **Scenario 2: Stress 50 KB Bundle Budget**: Injects heavy enterprise policy anchors to verify the budget invariant meter.
@@ -170,14 +175,14 @@ Upon entering the game for the first time, users are presented with the interact
 - Direct navigation access via the `[⚡ BOOT SEQUENCE]` pill and left navigation rail (`ShellNavDestination.bootSequence`).
 
 ### 6. Educational Efficacy Rater (`EducationEvalRater` & `EducationAssessmentCard`)
-Embedded directly within the Envoy Boot Page, an automated assessment engine audits how effectively players learn edge computing and memory architecture patterns:
+Embedded within the Envoy Boot Page, an automated assessment engine audits how effectively players learn edge computing and memory architecture patterns. To eliminate visual clutter during boot, the card is hidden by default and toggleable via the `[SHOW EFFICACY RATER]` button (`btn_toggle_efficacy_rater`) in Everything Mode (and completely hidden in Simple Mode):
 - **Rubric Dimensions**:
   - *Concept Retention (30%)*: Evaluates clarity on the "Map is not the Territory" rule, JIT on-demand paging, and asynchronous 3 AM consolidation.
   - *Tactile Interactivity (30%)*: Verifies player affordances for live byte counters, dynamic JIT topic paging, and context eviction meters.
   - *Cognitive Simplicity (20%)*: Assesses plain-English explanations, visual progress meters, and zero unexplained jargon.
   - *Gameplay Cohesion (20%)*: Measures how seamlessly edge concepts map to in-game survival (e.g. valve ciphers, sluice bypasses, keystone harmonics).
 - **Executive Card UI**:
-  - Distraction-free sepia card featuring an Executive Letter Grade badge (`GRADE: A+ (96.5%)`), dimension meters, bulleted key takeaways, and a collapsible 4-phase pedagogical breakdown accordion.
+  - Distraction-free sepia card featuring an Executive Letter Grade badge (`GRADE: A+ (96.5%)`), dimension meters, bulleted key takeaways, and a collapsible 4-phase pedagogical breakdown accordion. Revealed on demand via `[SHOW EFFICACY RATER]`.
 
 ### 7. Interactive Environmental Sandbox & Adaptive Routing Policies
 To demonstrate how physical edge constraints dictate intelligence routing, the hardware telemetry bar provides real-time simulation toggles:

@@ -5,21 +5,21 @@ description: Mandatory planning, TDD, affordance enforcement, and clarity standa
 
 # UI Clarity, Affordance Enforcement & TDD Protocol
 
-This skill governs the design, implementation, and automated testing of user interfaces across Flutter, web, and client applications. It establishes strict rules to eliminate **dead UI**, **false affordances**, and **unexplained engineering jargon**, enforcing complete visual parity with underlying data models through rigorous Test-Driven Development (TDD).
+This skill governs the design, implementation, and automated testing of user interfaces across Flutter, web, and client applications. It establishes strict engineering rules to eliminate **dead UI**, **false affordances**, **confetti pills**, **confusing toggles**, and **unexplained engineering jargon**, enforcing complete visual parity with underlying data models through rigorous Test-Driven Development (TDD) and live production verification.
 
 ---
 
-## 1. Core Philosophy
+## 1. Core Philosophy & Principles of UI Truthfulness
 
 > **"If it looks like a button, chip, or card, it must do something; if it does nothing, style it like quiet text."**
 
-False affordances break user trust. When a UI element presents interactive visual signifiers—such as rounded borders, elevated surfaces, badge pill containers, hover states, or action icons—the user instinctively expects a responsive interaction (tap, click, drill-down, expansion, or detailed tooltip). 
+False affordances break user trust. When a UI element presents interactive visual signifiers—such as rounded borders, elevated surfaces, badge pill containers, hover states, or action icons—the user instinctively expects a responsive interaction (tap, click, drill-down, expansion, or detailed tooltip). When an interactive element does nothing or acts as dead decoration, users experience frustration.
 
-Conversely, when an interactive element is styled with dead, unclickable widgets, users become confused and frustrated.
-
-### The Two Principles of UI Truthfulness:
+### The Four Principles of UI Truthfulness:
 1. **Interactive Elements Must Respond**: Any component styled as a chip, pill, badge, elevated card, or button MUST provide meaningful interaction (open a modal, trigger navigation, toggle an inline expansion, or display an inspectable contextual sheet).
-2. **Static Data Must Look Static**: Purely informational data that cannot be tapped or expanded must be presented using **quiet text styling**—subtle typography, standard inline layout, zero elevated pill backgrounds, and no misleading hover cursors.
+2. **Static Data Must Look Static (Quiet Typography)**: Purely informational data that cannot be tapped or expanded must be presented using **quiet typography**—subtle fonts, standard inline text, inline colored dots (`●`), zero elevated pill backgrounds, and no misleading hover cursors.
+3. **The Cognitive Overload Principle (Simple vs. Everything Mode)**: A clean UI separates product showcase value from developer instrumentation. Exposing internal diagnostic knobs, cheat steppers, and raw rule IDs in the primary user flow creates fatigue. Systems must support dual-mode presentation: **Simple Mode** (spotlighting core product pillars with plain-English telemetry) and **Everything Mode** (revealing developer diagnostics, rule matrices, and cheat knobs).
+4. **The High-Value Control Principle (No Frivolous/Confusing Toggles)**: Avoid creating toggles for internal display flags that confuse users (such as toggles that merely hide/show redundant speech). Instead, provide **high-value functional controls** that map to clear mental models (e.g. toggling active edge AI engines between Gemma 4 int4 and Gemini Nano with real model switching, dynamic label updates, and instant visual feedback).
 
 ---
 
@@ -29,42 +29,48 @@ Before writing code or marking any UI task complete, engineers and agents must p
 
 ```
 +-----------------------------------------------------------------------------------+
-| GATE 1: Affordance & Clarity Specification                                        |
-| - Zero-False-Affordance Rule (every pill/card has action or quiet styling)       |
-| - Plain Language & Context Rule (What, Why, What Changed; ban raw enums)          |
-| - Complete Visual Parity Rule (relations, history, and diffs are inspectable)    |
+| GATE 1: Affordance, Clarity & Cognitive Layout Specification                      |
+| - Zero-False-Affordance Rule (every pill/card has action or quiet styling)        |
+| - Plain Language & Three Context Questions (What, Why, What Changed; no enums)   |
+| - Complete Visual Parity Rule (relations, history, latencies, and diffs exposed)  |
+| - Confetti Pill Anti-Pattern & Quiet Typography Mandate (dot indicators, mono text)|
+| - Simple vs. Everything Mode Partitioning (spotlight 3 technical pillars)         |
+| - High-Value Control Mandate (meaningful toggles with instant feedback)           |
+| - Generative UI (A2UI) Extraction (sanitize raw JSON, separate stage cues)        |
+| - Responsive Layout Contention & Overlap Prevention (3-tier LayoutBuilder)       |
 +----------------------------------------+------------------------------------------+
                                          |
                                          v
 +-----------------------------------------------------------------------------------+
 | GATE 2: Test-Driven Development (TDD) Protocol                                    |
-| - Write widget tests before widget implementation                                |
-| - Tap gesture dispatch (`tester.tap`)                                             |
-| - Dialog/bottom sheet/modal content verification                                  |
-| - State mutation, error handling & rollback verification                          |
+| - Explicit physical viewport sizing (`tester.view.physicalSize = Size(1440, 900)`)|
+| - Tap gesture dispatch (`tester.tap`) and bottom sheet/dialog verification        |
+| - Simple vs. Everything Mode visibility assertions                                |
+| - Responsive breakpoint testing (Wide, Compact 640px, Ultra-compact 480px)        |
+| - State mutation, live service notifications, and real error handling assertions  |
 +----------------------------------------+------------------------------------------+
                                          |
                                          v
 +-----------------------------------------------------------------------------------+
 | GATE 3: Automated Validation & Pre-Commit Review                                  |
-| - `flutter test` & `flutter analyze` pass with zero warnings                     |
-| - Dead UI grep audit (no decorative Containers masquerading as buttons)          |
-| - Strict Never Mock & real dynamic data wiring verification                       |
+| - `flutter test` & `flutter analyze` pass with zero warnings                      |
+| - Dead UI grep audit (no decorative Containers masquerading as buttons)           |
+| - Strict Never Mock & real dynamic data wiring verification                        |
 +----------------------------------------+------------------------------------------+
                                          |
                                          v
 +-----------------------------------------------------------------------------------+
 | GATE 4: Deployment & Live Verification Standard (MANDATORY)                       |
 | - Build production assets (`flutter build web --release` / Docker)                |
-| - Deploy to Cloud Run (`$GCP_PROJECT` in `us-central1`)                            |
-| - Verify via live HTTP probe (`curl -s -i <cloud-run-service-url>`)               |
-| - Work is NOT done until the live service URL is verified and reported            |
+| - Deploy to Cloud Run (`$GCP_PROJECT` in `us-central1`)                             |
+| - Verify via live HTTP probe (`curl -s -i <cloud-run-service-url>`)                |
+| - Work is NOT done until the live service URL is verified and reported             |
 +-----------------------------------------------------------------------------------+
 ```
 
 ---
 
-### Gate 1: UI Planning & Affordance Specification
+### Gate 1: Affordance, Clarity & Cognitive Layout Specification
 
 #### Rule 1.1: The Zero-False-Affordance Rule
 Every UI component featuring any of the following visual attributes is classified as **Affordance-Bearing**:
@@ -84,7 +90,7 @@ If an element does not warrant any interaction or tooltip, you **MUST** strip it
 #### Rule 1.2: The Plain Language & Context Rule
 Raw engineering jargon, internal database enums, machine codes, and cryptic state machine identifiers are **strictly prohibited** in user-facing surfaces.
 
-- **Forbidden**: `ERR_CONSENSUS_TIMEOUT_V2`, `STATE_DISPATCH_ORCHESTRATOR_RUNNING`, `AGENT_WORKER_SIG_409`, raw UUIDs (`f0a0612a-76d6-4a18-8330-823099b86f84`).
+- **Forbidden**: `ERR_CONSENSUS_TIMEOUT_V2`, `STATE_DISPATCH_ORCHESTRATOR_RUNNING`, `AGENT_WORKER_SIG_409`, raw UUIDs (`f0a0612a-76d6-4a18-8330-823099b86f84`), raw internal rule IDs (`RULE_DEV_DEBUG_01`) in default views.
 - **Required**: Human-readable, clear English terms translated via dedicated presentation formatters or extension methods.
 
 Furthermore, every status badge, decision pill, or alert card must answer the **Three Context Questions**:
@@ -97,7 +103,7 @@ A UI must never truncate or swallow rich domain model data. If the underlying da
 - Related entities (parent tasks, assigned subagents, target databases)
 - Historical audit logs or trajectory steps
 - Contradictions or conflicting agent opinions
-- Timestamps and execution durations
+- Timestamps, TTFT (Time to First Token), total execution durations, and network egress byte counts (e.g. `0.0 KB (100% private)` vs remote egress)
 
 The UI **MUST** provide a concrete path for the user to view this information—via an inspectable details drawer, modal bottom sheet, or expandable panel. Never drop model fields simply because they do not fit inside a single row.
 
@@ -112,73 +118,45 @@ Packaging every piece of metadata (status, category, confidence, tags) into sepa
   - **Entity lists**: Render as inline dot-separated text (`SQLite WASM · Friday`) rather than wraps of individual pill badges.
 - **Actionable Intent Pills**: Retain pill containers ONLY when the element is an explicit interactive button or chip (such as `IntentPillWidget` in user flows or `Inspect Contradiction ➔` links) that dispatches a navigation, drawer expansion, or inspection dialog.
 
----
+#### Rule 1.5: Simple vs. Everything Mode Partitioning
+To avoid overwhelming users while preserving deep developer observability, implement a tactile mode switcher (`[ ⚡ Simple | 🔬 Everything ]`):
+- **Simple Mode**:
+  - Highlights strictly the core product pillars (e.g., Edge vs Cloud Execution, Memory Lifecycles, Living World State).
+  - Hides developer-internal cheat buttons (e.g. reputation steppers `+10/-10`), debug jump buttons, raw rule IDs, and raw rater rubrics.
+  - Telemetry modals display concise, high-value metrics: Execution Route, Model Engine, TTFT, Total Latency, Cloud Egress, Memory Delta, and Plain-English Routing Reason.
+- **Everything Mode**:
+  - Reveals all diagnostic views, engine toggles (`btn_toggle_edge_model`), internal policy rule IDs (`Firebase AI Policy`), cheat steppers, and LLM-as-a-rater grading rubrics.
+  - Telemetry modals display full internal debugging fields.
 
-### Gate 2: Test-Driven Development (TDD) Protocol
+#### Rule 1.6: High-Value Controls & Immediate Feedback
+Do not create decorative or confusing toggles for internal UI flags (e.g., toggles that merely hide speech text without adding value). Instead, implement **high-value functional controls**:
+- Example: An interactive edge model switcher (`EDGE: GEMMA 4` $\leftrightarrow$ `EDGE: GEMINI NANO`) that dynamically switches the active inference runtime between on-device Gemma 4 int4 (WebGPU / LiteRT) and Gemini Nano (Chrome Prompt API).
+- **Feedback Standard**: Any control that mutates runtime state must provide:
+  1. An immediate state change on the button/pill (icon + text).
+  2. Clear multi-line tooltip explaining the active state and what tapping will trigger.
+  3. A clean, non-stacking toast or SnackBar (`ScaffoldMessenger.of(context).clearSnackBars()`) confirming the transition in plain English.
 
-UI widgets must be designed and validated through tests **before** marking tasks complete. In Flutter/Dart, this requires widget tests targeting user interactions, component lifecycles, and affordance responses.
+#### Rule 1.7: Generative UI (A2UI) Extraction & Clean Dialogue
+Generative AI outputs presenting interactive choices or actions must never leak raw JSON syntax or markdown code blocks into dialogue:
+- **Sanitization**: Strips raw ````json ... ```` fences from visible dialogue bubbles.
+- **Stage Cue Extraction**: Extracts stage cues `*[cue]*` into quiet italicized headers above the dialogue text.
+- **Surface Promotion**: Promotes choices into dedicated interactive cards (`A2UISurfaceView`) featuring execution tier tags (`[EDGE]`, `[CLOUD]`).
+- **Deduplication**: Suppresses redundant speech text when generative UI components are active to prevent visual repetition.
 
-#### Mandatory Test Cases
-
-1. **Render & Semantic Test**:
-   - Verify the widget renders with human-readable text (not raw enum strings).
-   - Verify proper semantic labels and tooltips exist.
-
-2. **Tap Gesture & Modal Dispatch (`tester.tap`)**:
-   - Verify that tapping the card or chip fires the interaction.
-   - Verify that the expected modal bottom sheet, dialog, or drawer appears on screen (`find.byType(BottomSheet)` or `find.byType(AlertDialog)`).
-
-3. **Detail Content & Context Verification**:
-   - Verify that inside the opened modal, the full context is present: the "What", the "Why", timestamps, and relational data.
-
-4. **State Mutation & Action Verification**:
-   - If the modal or card contains an action (e.g., "Retry", "Approve", "Rollback"), test tapping the button and asserting the corresponding state update or service call.
-   - Test failure states: if an action fails, assert that a real error message is surfaced to the user (no silent failures or fake mock fallbacks).
-
----
-
-### Gate 3: Automated Validation & Pre-Commit Checklist
-
-Before submitting code or declaring a UI component complete, run through this automated and manual checklist:
-
-| Verification Item | Requirement | Pass Criteria |
-| :--- | :--- | :--- |
-| **Affordance Audit** | Every chip, pill, badge, or card has an active `onTap` or uses quiet text. | No dead `Container(decoration: BoxDecoration(...))` without interaction. |
-| **No Raw Enums** | All status strings are formatted into plain English. | Grep shows no uppercase enum constants displayed directly in `Text()`. |
-| **Contextual Details** | Tapping opens a sheet/modal with What, Why, and Timestamps. | Modal verified in widget tests. |
-| **TDD Widget Tests** | Automated tests execute tap gestures and assert modal visibility. | `flutter test` passes 100%. |
-| **Static Analysis** | Dart analyzer reports zero issues. | `flutter analyze` reports zero warnings or errors. |
-| **Design System** | Follows academic light / sepia guidelines with clear typography. | Clean 2-3 panel layouts, compact Intent Pills, no bulky static banners. |
-| **Strict Never Mock** | Dynamic wiring to real endpoints/models. | No hardcoded fake delays, `simulateInference()`, or mock fallback objects. |
-
----
-
-### Gate 4: Deployment & Live Verification Standard (MANDATORY)
-
-> **"The task is NOT complete when the tests pass locally. The task is ONLY complete when built, deployed to Cloud Run ('$GCP_PROJECT'), and verified via live HTTP probe."**
-
-No agent, engineer, or workflow may declare a UI, service, or feature complete while running solely on localhost or emulator. Every feature touching client UI, service routers, or backend APIs must pass Gate 4:
-
-1. **Production Build**: Compile release artifacts (`flutter build web --release`). Ensure zero build warnings or missing asset bundles.
-2. **Cloud Run Deployment**: Deploy to Google Cloud Run in project `$GCP_PROJECT` (region `us-central1`).
-   ```bash
-   # Deploy Client to Cloud Run
-   cd client && ../scripts/flutter build web --release
-   gcloud run deploy distributed-ai-frontend \
-     --source . \
-     --region us-central1 \
-     --project "${GCP_PROJECT}" \
-     --platform managed \
-     --allow-unauthenticated
-   ```
-3. **Live HTTP Verification Probe**: Probe the deployed URL with `curl -s -i <url>` to verify HTTP 200, valid headers (`cross-origin-opener-policy: same-origin`, `cross-origin-embedder-policy: credentialless`), and proper HTML/WASM asset loading.
-4. **Mandatory Live URL Reporting**: The completion response must provide the live URL (`https://<service-url>`) and the live probe outcome.
+#### Rule 1.8: Responsive Layout Contention & Overlap Prevention
+When sidebars or contextual inspector drawers open (e.g. 240px Left Nav Rail + 320px Right Inspector Drawer), the center workspace width shrinks dramatically (from 1200px+ down to 640px or 480px).
+- **Three-Tier Breakpoints via `LayoutBuilder`**:
+  - **Wide ($\ge 900$px)**: Full title text and full pill labels (`Load Gemma 4 2B (~1.46 GB)`, `Edge Probe: 12ms`).
+  - **Compact ($600\text{px} \le \text{width} < 900\text{px}$)**: Streamlined title (`ASSISTANT SHELL`), concise pill labels (`Load Gemma 4`, `Auto`).
+  - **Ultra-Compact ($< 600$px)**: Minimalist title (`ASSISTANT`), defer non-essential probes to inspector drawer.
+- **Title Block Bounding**: Title block must be bounded to at most 45% of available width with `TextOverflow.ellipsis`.
+- **Action Container**: Wrap action buttons/pills in an `Expanded` right-aligned container with a non-reversed horizontal scroll viewer (`SingleChildScrollView(scrollDirection: Axis.horizontal)`). This guarantees pills never wrap unexpectedly, squish, or clip from the left.
 
 ---
 
 ## 3. Good vs. Bad Code Patterns (Flutter Examples)
 
-### Anti-Pattern 1: The "Dead UI" Pill Chip (False Affordance)
+### Anti-Pattern 1: The "Dead UI" Confetti Pill (False Affordance)
 
 ```dart
 // ❌ BAD: Misleading interactive appearance, raw enum jargon, dead to taps.
@@ -228,7 +206,6 @@ class AgentStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     return Material(
       color: Colors.transparent,
@@ -277,83 +254,6 @@ class AgentStatusChip extends StatelessWidget {
     );
   }
 }
-
-class AgentStatusDetailsSheet extends StatelessWidget {
-  final AgentStatusInfo statusInfo;
-
-  const AgentStatusDetailsSheet({super.key, required this.statusInfo});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                statusInfo.userFacingTitle,
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          const Divider(),
-          const SizedBox(height: 8),
-          Text(
-            'What Happened:',
-            style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          Text(statusInfo.summary, style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 12),
-          Text(
-            'Why:',
-            style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          Text(statusInfo.reasoning, style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 12),
-          Text(
-            'Timestamp & Trace:',
-            style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          Text(
-            '${statusInfo.updatedAt.toLocal()} (${statusInfo.traceId})',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
-              ),
-              if (statusInfo.isRetryable) ...[
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    statusInfo.onRetry?.call();
-                  },
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Retry Step'),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
 ```
 
 ---
@@ -368,28 +268,46 @@ class QuietStatusLabel extends StatelessWidget {
   final String label;
   final String value;
 
-  const QuietStatusLabel({super.key, required this.label, required this.value});
+  final Color dotColor;
+
+  const QuietStatusLabel({
+    super.key,
+    required this.label,
+    required this.value,
+    this.dotColor = const Color(0xFF3F6212),
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return RichText(
-      text: TextSpan(
-        style: theme.textTheme.bodySmall,
-        children: [
-          TextSpan(
-            text: '$label: ',
-            style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: dotColor),
+        ),
+        const SizedBox(width: 6),
+        RichText(
+          text: TextSpan(
+            style: theme.textTheme.bodySmall,
+            children: [
+              TextSpan(
+                text: '$label: ',
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+              ),
+              TextSpan(
+                text: value,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-          TextSpan(
-            text: value,
-            style: TextStyle(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -397,81 +315,252 @@ class QuietStatusLabel extends StatelessWidget {
 
 ---
 
-## 4. Test-Driven Development: Widget Test Specification
+### Pattern 3: Responsive Header Toolbar with Overlap Prevention
 
-Here is the standard Flutter widget test demonstrating the mandatory verification pattern:
+```dart
+// ✅ GOOD: Three-tier adaptive responsiveness preventing RenderFlex overflow
+class ResponsiveWorkspaceHeader extends StatelessWidget {
+  final String title;
+  final Widget leftAction;
+  final List<Widget> rightPills;
+
+  const ResponsiveWorkspaceHeader({
+    super.key,
+    required this.title,
+    required this.leftAction,
+    required this.rightPills,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final isUltraCompact = width < 600;
+        final isCompact = width < 900;
+
+        final displayTitle = isUltraCompact
+            ? 'ASSISTANT'
+            : (isCompact ? 'ASSISTANT SHELL' : title);
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFE6DFD5))),
+          ),
+          child: Row(
+            children: [
+              leftAction,
+              const SizedBox(width: 8),
+              // Constrain title to prevent pushing out action pills
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: width * 0.42),
+                child: Text(
+                  displayTitle,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              const Spacer(),
+              // Right-aligned scrollable action pills container
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  reverse: false,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: rightPills,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+```
+
+---
+
+### Pattern 4: High-Value Edge Model Switcher Pill with State Feedback
+
+```dart
+// ✅ GOOD: Functional, informative edge engine switcher with instant toast feedback
+Widget buildEdgeEngineTogglePill(BuildContext context, LocalExecutionManager edgeManager) {
+  final isNano = edgeManager.activeEngine == ActiveEdgeEngine.geminiNano;
+  final color = isNano ? const Color(0xFF0284C7) : const Color(0xFF3F6212);
+  final engineLabel = isNano ? 'EDGE: GEMINI NANO' : 'EDGE: GEMMA 4';
+  final tooltipMsg = isNano
+      ? 'Active Edge Engine: Gemini Nano (Chrome Prompt API).\nTap to toggle Gemma 4 int4 (WebGPU / LiteRT).'
+      : 'Active Edge Engine: Gemma 4 int4.\nTap to toggle Gemini Nano (Chrome Prompt API).';
+
+  return InkWell(
+    key: const Key('btn_toggle_edge_model'),
+    onTap: () async {
+      await edgeManager.toggleLocalEngine();
+      final newIsNano = edgeManager.activeEngine == ActiveEdgeEngine.geminiNano;
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                newIsNano ? Icons.auto_awesome_rounded : Icons.memory_rounded,
+                size: 16,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  newIsNano
+                      ? '⚡ Switched edge engine to Gemini Nano (Chrome Built-in AI)'
+                      : '⚡ Switched edge engine to Gemma 4 int4 (WebGPU / LiteRT)',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          duration: const Duration(seconds: 2),
+          backgroundColor: color,
+        ),
+      );
+    },
+    borderRadius: BorderRadius.circular(14),
+    child: Tooltip(
+      message: tooltipMsg,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(isNano ? Icons.auto_awesome_rounded : Icons.memory_rounded, size: 13, color: color),
+            const SizedBox(width: 4),
+            Text(
+              engineLabel,
+              style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.w700, color: color),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.swap_horiz, size: 12, color: color.withOpacity(0.7)),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+```
+
+---
+
+## 4. Test-Driven Development: Widget Test Specifications
+
+### Viewport Guardrail for Flutter Widget Tests
+In Flutter headless testing environments, default viewports are restricted. When testing responsive layouts or panels, **always explicitly set physicalSize and register tearDown**:
+
+```dart
+tester.view.physicalSize = const Size(1440, 900);
+tester.view.devicePixelRatio = 1.0;
+addTearDown(() {
+  tester.view.resetPhysicalSize();
+  tester.view.resetDevicePixelRatio();
+});
+```
+
+### Complete Test Suite Example
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:my_app/ui/agent_status_chip.dart';
-import 'package:my_app/models/agent_status_info.dart';
+import 'package:my_app/services/app_mode_service.dart';
+import 'package:my_app/views/agent_status_chip.dart';
+import 'package:my_app/views/widgets/responsive_workspace_header.dart';
 
 void main() {
-  group('AgentStatusChip Affordance & TDD Suite', () {
-    final testStatusInfo = AgentStatusInfo(
-      rawCode: 'ERR_CONSENSUS_FAIL',
-      userFacingTitle: 'Consensus Blocked',
-      summary: 'Agents disagreed on the deployment safety criteria.',
-      reasoning: 'Security agent flagged unauthorized egress rule in terraform script.',
-      traceId: 'trace-88912',
-      updatedAt: DateTime(2026, 10, 2, 10, 30),
-      isRetryable: true,
-      backgroundColor: Colors.amber.shade50,
-      borderColor: Colors.amber.shade300,
-      textColor: Colors.amber.shade900,
-      icon: Icons.warning_amber_rounded,
-    );
-
+  group('UI Clarity, Affordance & TDD Suite', () {
     testWidgets('renders human-readable title and tooltip, not raw code', (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Center(child: AgentStatusChip(statusInfo: testStatusInfo)),
+            body: Center(
+              child: AgentStatusChip(
+                statusInfo: AgentStatusInfo(
+                  userFacingTitle: 'Consensus Blocked',
+                  summary: 'Agents disagreed on deployment safety criteria.',
+                  reasoning: 'Security flagged egress rule.',
+                  updatedAt: DateTime.now(),
+                  traceId: 'tr-99',
+                  isRetryable: true,
+                ),
+              ),
+            ),
           ),
         ),
       );
 
-      // Verify plain English label is rendered
       expect(find.text('Consensus Blocked'), findsOneWidget);
-      expect(find.text('ERR_CONSENSUS_FAIL'), findsNothing);
-
-      // Verify tooltip presence
       expect(find.byType(Tooltip), findsOneWidget);
-    });
 
-    testWidgets('tapping chip opens modal bottom sheet with complete details', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Center(child: AgentStatusChip(statusInfo: testStatusInfo)),
-          ),
-        ),
-      );
-
-      // Tap the chip
+      // Tap chip to open bottom sheet
       await tester.tap(find.byType(InkWell));
       await tester.pumpAndSettle();
 
-      // Verify modal bottom sheet opened
-      expect(find.byType(AgentStatusDetailsSheet), findsOneWidget);
-
-      // Verify What and Why context are displayed
       expect(find.text('What Happened:'), findsOneWidget);
-      expect(find.text('Agents disagreed on the deployment safety criteria.'), findsOneWidget);
       expect(find.text('Why:'), findsOneWidget);
-      expect(
-        find.text('Security agent flagged unauthorized egress rule in terraform script.'),
-        findsOneWidget,
-      );
-
-      // Verify Retry button exists
       expect(find.text('Retry Step'), findsOneWidget);
+    });
 
-      // Verify dismissing modal
-      await tester.tap(find.text('Close'));
+    testWidgets('Simple mode hides developer knobs and cheat steppers', (tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      AppModeService().setMode(AppDisplayMode.simple);
+
+      await tester.pumpWidget(const MaterialApp(home: MyMainStudioView()));
       await tester.pumpAndSettle();
-      expect(find.byType(AgentStatusDetailsSheet), findsNothing);
+
+      // Core product flows visible
+      expect(find.byKey(const Key('btn_mission_dossier')), findsOneWidget);
+
+      // Dev tools and cheat knobs hidden
+      expect(find.byKey(const Key('btn_faction_sub_vanguard')), findsNothing);
+      expect(find.byKey(const Key('btn_open_game_memory_dev_tool')), findsNothing);
+    });
+
+    testWidgets('Responsive header adapts titles and avoids overflow at 640px', (tester) async {
+      tester.view.physicalSize = const Size(640, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ResponsiveWorkspaceHeader(
+              title: 'ASSISTANT SHELL // DUAL EDGE-CLOUD WORKSPACE',
+              leftAction: const Icon(Icons.bolt),
+              rightPills: const [
+                Chip(label: Text('Load Gemma 4')),
+                Chip(label: Text('Auto')),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('ASSISTANT SHELL'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }
@@ -479,53 +568,89 @@ void main() {
 
 ---
 
-## 5. Engineer & Agent Runbook: Adding New UI Elements
+## 5. Gate 3: Automated Validation & Pre-Commit Checklist
 
-When introducing any new card, chip, badge, row, or dashboard widget, follow this step-by-step runbook:
+Before submitting code or declaring a UI component complete, run through this automated and manual checklist:
 
-### Step 1: Data Model & Affordance Audit
-1. Inspect the underlying data model. List all fields (e.g., raw code, human label, explanation, timestamps, related entity IDs, retryable state).
-2. Determine interaction requirement:
-   - **Needs Inspection/Action**: Element represents a state with background context, logs, or actions. Use **Interactive Affordance** (`InkWell`, `Tooltip`, chevron icon, and modal/bottom sheet).
-   - **Purely Informational**: Element is a simple scalar (e.g. line count, simple date). Use **Quiet Text** (flat typography, no badge container, no false clickability).
+| Verification Item | Requirement | Pass Criteria |
+| :--- | :--- | :--- |
+| **Affordance Audit** | Every chip, pill, badge, or card has an active `onTap` or uses quiet text. | No dead `Container(decoration: BoxDecoration(...))` without interaction. |
+| **No Raw Enums** | All status strings and rule IDs are formatted into plain English. | Grep shows no uppercase enum constants displayed directly in user `Text()`. |
+| **Contextual Details** | Tapping opens a sheet/modal with What, Why, and Timestamps. | Modal verified in widget tests. |
+| **Simple vs Everything Mode** | Showcase views hide dev cheats, rater rubrics, and internal rule IDs. | Simple mode widget tests pass 100%. |
+| **Responsive Layout** | `LayoutBuilder` used on headers with bounded titles ($\le 45\%$) and scrollable pills. | Zero `RenderFlex` overflow errors at 1200px, 640px, and 480px. |
+| **A2UI Cleanliness** | Strips raw JSON code blocks and stage cues from dialogue speech bubbles. | Dialogue cards render clean text + promoted `A2UISurfaceView` choices. |
+| **High-Value Controls** | Toggles trigger real engine switches with immediate icon/text change & SnackBar. | Active engine toggle tested with live state assertion. |
+| **TDD Widget Tests** | Physical viewport set (`1440x900`), taps tested, sheets asserted. | `flutter test` passes 100%. |
+| **Static Analysis** | Dart analyzer reports zero issues. | `flutter analyze` reports zero warnings or errors. |
+| **Strict Never Mock** | Dynamic wiring to real endpoints, services, and reactive stores. | No hardcoded fake delays, `simulateInference()`, or mock fallback objects. |
 
-### Step 2: Write Widget Tests First (TDD)
-1. Create `<widget_name>_test.dart` in `test/`.
-2. Write tests asserting:
-   - Plain English rendering (banning raw codes).
-   - Tap gesture triggering `showModalBottomSheet` or dialog.
-   - Verification of the "What, Why, What Changed" inside the dialog.
-   - Verification of action dispatch and error handling.
-3. Run `flutter test test/...` and verify tests fail (Red stage).
+---
 
-### Step 3: Implement Widget with Full Affordances
-1. Implement the widget using proper theme tokens and semantic widgets (`Material`, `InkWell`, `Tooltip`).
-2. Implement the contextual inspection sheet or expansion tile displaying full model context.
-3. Re-run `flutter test` and verify tests pass (Green stage).
+## 6. Gate 4: Deployment & Live Verification Standard (MANDATORY)
 
-### Step 4: Run Static Checks & Visual Review
-1. Run `flutter analyze` to ensure zero linter or type errors.
-2. Verify visual styling conforms to the design system (distraction-free light/sepia palette, readable typography, compact Intent Pills).
-3. Ensure no mocked data or synthetic fallback routines are used—all data must flow dynamically from genuine providers/repositories.
+> **"The task is NOT complete when the tests pass locally. The task is ONLY complete when built, deployed to Cloud Run ('$GCP_PROJECT'), and verified via live HTTP probe."**
 
-### Step 5: Cloud Run Build, Deployment & Live Verification Probe (MANDATORY)
-1. **Never declare work complete until deployed**: Code running locally or passing tests in CI is necessary but NOT sufficient. Work is ONLY complete when the live service is updated and verified in production.
-2. **Compile production client**:
+No agent, engineer, or workflow may declare a UI, service, or feature complete while running solely on localhost or emulator. Every feature touching client UI, service routers, or backend APIs must pass Gate 4:
+
+1. **Production Build**: Compile release artifacts (`flutter build web --release`). Ensure zero build warnings or missing asset bundles.
+2. **Cloud Run Deployment**: Deploy to Google Cloud Run in project `$GCP_PROJECT` (region `us-central1`).
    ```bash
+   # Deploy Client to Cloud Run
    cd client && ../scripts/flutter build web --release
-   ```
-3. **Deploy to Cloud Run ('$GCP_PROJECT')**:
-   ```bash
-   cd client && gcloud run deploy distributed-ai-frontend \
+   gcloud run deploy distributed-ai-frontend \
      --source . \
      --region us-central1 \
      --project "${GCP_PROJECT}" \
      --platform managed \
      --allow-unauthenticated
    ```
-4. **Execute live HTTP verification probe**:
-   ```bash
-   curl -s -i https://<distributed-ai-frontend-url>/
-   ```
-5. **Report live service URL**: The final agent response must state that deployment succeeded, cite the live probe HTTP status, and provide the live service URL.
+3. **Live HTTP Verification Probe**: Probe the deployed URL with `curl -s -i <url>` to verify HTTP 200, valid headers (`cross-origin-opener-policy: same-origin`, `cross-origin-embedder-policy: credentialless`, `Cache-Control: no-cache, no-store, must-revalidate`), and proper HTML/WASM asset loading.
+4. **Mandatory Live URL Reporting**: The completion response must provide the live URL (`https://<service-url>`) and the live probe outcome.
 
+---
+
+## 7. Engineer & Agent Runbook: Step-by-Step UI Implementation
+
+When introducing any new card, chip, badge, row, or dashboard widget, follow this step-by-step runbook:
+
+### Step 1: Data Model & Affordance Audit
+1. Inspect the underlying data model. List all fields (raw code, human label, explanation, timestamps, durations, network egress, related IDs).
+2. Classify visibility:
+   - Does this belong in **Simple Mode** (core user journey/pillars) or **Everything Mode** (diagnostic logs, cheat knobs, internal policy IDs)?
+3. Determine interaction requirement:
+   - **Needs Inspection/Action**: Element represents a state with background context, logs, or actions. Use **Interactive Affordance** (`InkWell`, `Tooltip`, chevron icon, and modal/bottom sheet).
+   - **Purely Informational**: Element is a simple scalar (line count, date, status tag). Use **Quiet Typography** (inline dot `●`, flat typography, no container capsule).
+
+### Step 2: Responsive & Layout Contention Planning
+1. Use `LayoutBuilder` for headers, action bars, or multi-item rows.
+2. Constrain title blocks ($\le 45\%$ width) with `TextOverflow.ellipsis`.
+3. Wrap action buttons in `Expanded` right-aligned containers with horizontal scrolling to prevent squishing or clipping when drawers open.
+
+### Step 3: Write Widget Tests First (TDD)
+1. Create `<widget_name>_test.dart` in `test/`.
+2. Configure physical test viewport: `tester.view.physicalSize = const Size(1440, 900); addTearDown(tester.view.resetPhysicalSize);`.
+3. Assert:
+   - Plain English rendering (banning raw codes/enums).
+   - Tap gesture triggering `showModalBottomSheet` or dialog.
+   - Verification of the "What, Why, What Changed" and telemetry inside the dialog.
+   - Verification of mode gating (hidden in Simple mode, visible in Everything mode).
+   - Verification of responsive layout at 1200px, 640px, and 480px with `tester.takeException() == null`.
+4. Run `flutter test test/...` and verify tests fail (Red stage).
+
+### Step 4: Implement Widget with Full Affordances
+1. Implement the widget using proper theme tokens and semantic widgets (`Material`, `InkWell`, `Tooltip`).
+2. Implement contextual inspection sheet or expansion tile displaying full model context.
+3. Wire real reactive state updates (`notifyListeners()`) and instant toast feedback for functional toggles.
+4. Re-run `flutter test` and verify tests pass (Green stage).
+
+### Step 5: Run Static Checks & Visual Review
+1. Run `flutter analyze` to ensure zero linter or type errors.
+2. Verify visual styling conforms to the design system (distraction-free light/sepia palette, readable typography, compact Intent Pills).
+3. Ensure no mocked data or synthetic fallback routines are used.
+
+### Step 6: Cloud Run Build, Deployment & Live Verification Probe (MANDATORY)
+1. Compile production client (`cd client && ../scripts/flutter build web --release`).
+2. Deploy to Cloud Run (`gcloud run deploy distributed-ai-frontend ...`).
+3. Execute live HTTP verification probe (`curl -s -i https://<distributed-ai-frontend-url>/`).
+4. Report the live service URL and live probe verification in your final response.
