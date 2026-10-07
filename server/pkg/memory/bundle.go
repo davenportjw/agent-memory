@@ -49,9 +49,9 @@ func (b *Bundler) GenerateBundle(ctx context.Context, categoryFilter string) (*m
 		return nodes[i].LastUpdated > nodes[j].LastUpdated
 	})
 
-	maxBytes := b.cfg.MaxBundleSizeBytes
-	if maxBytes <= 0 || maxBytes > config.MaxBundleSizeBytes {
-		maxBytes = config.MaxBundleSizeBytes
+	maxBytes := config.MaxBundleSizeBytes
+	if b.cfg != nil && b.cfg.MaxBundleSizeBytes > 0 && b.cfg.MaxBundleSizeBytes <= config.MaxBundleSizeBytes {
+		maxBytes = b.cfg.MaxBundleSizeBytes
 	}
 
 	anchors := make([]models.MemoryAnchor, 0, len(nodes))
@@ -111,7 +111,22 @@ func (b *Bundler) GenerateBundle(ctx context.Context, categoryFilter string) (*m
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to serialize final bundle: %w", err)
 	}
-	bundle.SizeBytes = len(finalJSON)
+	if len(finalJSON) != bundle.SizeBytes {
+		bundle.SizeBytes = len(finalJSON)
+		finalJSON, err = json.Marshal(bundle)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to re-serialize exact bundle: %w", err)
+		}
+	}
+
+	for len(finalJSON) > maxBytes && len(bundle.Anchors) > 1 {
+		bundle.Anchors = bundle.Anchors[:len(bundle.Anchors)-1]
+		bundle.TotalAnchors = len(bundle.Anchors)
+		bundle.SizeBytes = maxBytes
+		finalJSON, _ = json.Marshal(bundle)
+		bundle.SizeBytes = len(finalJSON)
+		finalJSON, _ = json.Marshal(bundle)
+	}
 
 	return bundle, finalJSON, nil
 }

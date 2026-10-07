@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../models/routing_decision.dart';
+import '../../services/local_execution_manager.dart';
 import '../../services/lorecraft_service.dart';
 import '../../services/switching_router_service.dart';
 import '../../theme/sepia_theme.dart';
+import 'edge_inference_sheet.dart';
 
 /// LoreCraftForesightPill provides pre-flight routing foresight above the prompt input.
 /// Complies with UI Clarity & TDD: dynamically responds to user typing and opens the
@@ -30,12 +32,14 @@ class _LoreCraftForesightPillState extends State<LoreCraftForesightPill> {
     _currentEval = widget.loreService.previewRoute(widget.promptController.text);
     widget.promptController.addListener(_onTextChanged);
     widget.loreService.addListener(_onServiceChanged);
+    widget.loreService.edgeManager.addListener(_onServiceChanged);
   }
 
   @override
   void dispose() {
     widget.promptController.removeListener(_onTextChanged);
     widget.loreService.removeListener(_onServiceChanged);
+    widget.loreService.edgeManager.removeListener(_onServiceChanged);
     super.dispose();
   }
 
@@ -46,7 +50,7 @@ class _LoreCraftForesightPillState extends State<LoreCraftForesightPill> {
     if (_currentEval.route == ExecutionRoute.CLOUD_ESCALATE) {
       return 'Gemini 3.8 Flash (Vertex AI)';
     }
-    return 'Gemma 4 int4 (On-Device WebGPU/Metal)';
+    return widget.loreService.edgeManager.activeEngineName;
   }
 
   void _onTextChanged() {
@@ -142,6 +146,41 @@ class _LoreCraftForesightPillState extends State<LoreCraftForesightPill> {
               const SizedBox(height: 12),
               const Divider(color: SepiaTheme.border, height: 1),
               const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'ON-DEVICE INFERENCE ENGINE',
+                    style: SepiaTheme.sans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                      color: SepiaTheme.inkMuted,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      EdgeInferenceSheet.show(context, widget.loreService.edgeManager);
+                    },
+                    icon: const Icon(Icons.tune_rounded, size: 13, color: SepiaTheme.sage),
+                    label: Text(
+                      'Configure & Load',
+                      style: SepiaTheme.sans(fontSize: 11, fontWeight: FontWeight.w600, color: SepiaTheme.sage),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _buildEdgeEngineQuickSelector(ctx),
+              const SizedBox(height: 12),
+              const Divider(color: SepiaTheme.border, height: 1),
+              const SizedBox(height: 12),
               Text(
                 'QUICK ROUTE BENCHMARK PROBES',
                 style: SepiaTheme.sans(
@@ -196,6 +235,95 @@ class _LoreCraftForesightPillState extends State<LoreCraftForesightPill> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEdgeEngineQuickSelector(BuildContext modalCtx) {
+    final mgr = widget.loreService.edgeManager;
+    final selected = mgr.selectedEngine;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _buildEngineFilterChip(
+              label: 'Auto',
+              isSelected: selected == EdgeEngineSelection.auto,
+              onTap: () {
+                setState(() => mgr.selectedEngine = EdgeEngineSelection.auto);
+              },
+            ),
+            const SizedBox(width: 6),
+            _buildEngineFilterChip(
+              label: 'Gemini Nano',
+              isSelected: selected == EdgeEngineSelection.geminiNano,
+              onTap: () {
+                setState(() => mgr.selectedEngine = EdgeEngineSelection.geminiNano);
+              },
+            ),
+            const SizedBox(width: 6),
+            _buildEngineFilterChip(
+              label: 'Gemma 4',
+              isSelected: selected == EdgeEngineSelection.gemma4,
+              onTap: () {
+                setState(() => mgr.selectedEngine = EdgeEngineSelection.gemma4);
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: mgr.isActiveEngineReady ? SepiaTheme.sage : SepiaTheme.amber,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Active: ${mgr.activeEngineName} • ${mgr.activeEngineStatusLabel}',
+                style: SepiaTheme.mono(fontSize: 10, color: SepiaTheme.inkSecondary),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEngineFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? SepiaTheme.sageBg : SepiaTheme.paperSubtle,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? SepiaTheme.sageBorder : SepiaTheme.border,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Text(
+          label,
+          style: SepiaTheme.sans(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? SepiaTheme.sage : SepiaTheme.inkSecondary,
           ),
         ),
       ),
@@ -302,7 +430,12 @@ class _LoreCraftForesightPillState extends State<LoreCraftForesightPill> {
     if (_currentEval.route == ExecutionRoute.CLOUD_ESCALATE) {
       return '☁️ Escalating to Gemini 3.8 Flash • Campaign Synthesis';
     }
-    return '⚡ On-Device Gemma 4 (<60ms) • Local Dialogue';
+    final mgr = widget.loreService.edgeManager;
+    final shortName = mgr.activeEngineDisplayShortName;
+    if (!mgr.isActiveEngineReady) {
+      return '⚠️ On-Device $shortName (Needs Load) • Tap to Configure';
+    }
+    return '⚡ On-Device $shortName (<60ms) • Local Dialogue';
   }
 
   @override

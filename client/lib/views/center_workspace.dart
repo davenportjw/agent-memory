@@ -436,6 +436,7 @@ class _CenterWorkspaceState extends State<CenterWorkspace> {
         ),
       ),
       child: PopupMenuButton<String>(
+        key: const Key('btn_execution_routing_pill'),
         tooltip: 'Select routing policy and on-device engine',
         offset: const Offset(0, 36),
         shape: RoundedRectangleBorder(

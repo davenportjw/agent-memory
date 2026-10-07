@@ -52,12 +52,16 @@ void runLocalExecutionTests(
     manager.selectedEngine = EdgeEngineSelection.geminiNano;
     expect(manager.activeEngine == ActiveEdgeEngine.geminiNano, 'Active engine must switch to geminiNano');
     expect(manager.activeEngineName.contains('Gemini Nano'), 'Active engine name must reflect Gemini Nano');
+    expect(manager.activeEngineDisplayShortName == 'Gemini Nano', 'Display short name should be Gemini Nano');
+    expect(manager.isActiveEngineReady == false, 'Gemini Nano in VM stub is not active/ready');
     expect(manager.activeRamMb == 850.0, 'Active RAM must report Gemini Nano memory (~850 MB)');
 
     // Switch to gemma4
     manager.selectedEngine = EdgeEngineSelection.gemma4;
     expect(manager.activeEngine == ActiveEdgeEngine.gemma4, 'Active engine must switch to gemma4');
     expect(manager.activeEngineName.contains('Gemma 4'), 'Active engine name must reflect Gemma 4');
+    expect(manager.activeEngineDisplayShortName == 'Gemma 4', 'Display short name should be Gemma 4');
+    expect(manager.isActiveEngineReady == false, 'Gemma weights not loaded yet');
     expect(manager.activeRamMb == 1240.5, 'Active RAM must report Gemma 4 memory');
   });
 

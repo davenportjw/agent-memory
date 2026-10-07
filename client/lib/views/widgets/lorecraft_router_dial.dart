@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 import '../../services/switching_router_service.dart';
+import '../../services/local_execution_manager.dart';
 import '../../theme/sepia_theme.dart';
+import 'edge_inference_sheet.dart';
 
 /// LoreCraftRouterDial allows the player or developer to inspect and switch the Firebase AI routing stance.
 /// Follows strict UI Clarity standards: zero false affordances, plain-English mode explanations.
 class LoreCraftRouterDial extends StatelessWidget {
   final RouterModeOverride selectedMode;
   final ValueChanged<RouterModeOverride> onModeSelected;
+  final LocalExecutionManager? edgeManager;
+  final ValueChanged<EdgeEngineSelection>? onEdgeEngineSelected;
 
   const LoreCraftRouterDial({
     super.key,
     required this.selectedMode,
     required this.onModeSelected,
+    this.edgeManager,
+    this.onEdgeEngineSelected,
   });
 
   void _showModeExplanationDialog(BuildContext context) {
@@ -231,7 +237,90 @@ class LoreCraftRouterDial extends StatelessWidget {
               ],
             ),
           ),
+          if (selectedMode == RouterModeOverride.enforceEdgeLocal && edgeManager != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: SepiaTheme.paper,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: SepiaTheme.borderSubtle),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: edgeManager!.isActiveEngineReady ? SepiaTheme.sage : SepiaTheme.amber,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Edge Model:',
+                        style: SepiaTheme.sans(fontSize: 10, fontWeight: FontWeight.w600, color: SepiaTheme.inkMuted),
+                      ),
+                      const SizedBox(width: 6),
+                      _buildEngineMiniChip('Auto', EdgeEngineSelection.auto),
+                      const SizedBox(width: 4),
+                      _buildEngineMiniChip('Nano', EdgeEngineSelection.geminiNano),
+                      const SizedBox(width: 4),
+                      _buildEngineMiniChip('Gemma 4', EdgeEngineSelection.gemma4),
+                    ],
+                  ),
+                  Tooltip(
+                    message: 'Configure & load on-device weights',
+                    child: InkWell(
+                      onTap: () => EdgeInferenceSheet.show(context, edgeManager!),
+                      borderRadius: BorderRadius.circular(4),
+                      child: const Padding(
+                        padding: EdgeInsets.all(2),
+                        child: Icon(Icons.tune_rounded, size: 13, color: SepiaTheme.inkSecondary),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildEngineMiniChip(String label, EdgeEngineSelection engine) {
+    final isSelected = edgeManager?.selectedEngine == engine;
+    return InkWell(
+      onTap: () {
+        if (onEdgeEngineSelected != null) {
+          onEdgeEngineSelected!(engine);
+        } else if (edgeManager != null) {
+          edgeManager!.selectedEngine = engine;
+        }
+      },
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: isSelected ? SepiaTheme.sageBg : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected ? SepiaTheme.sageBorder : SepiaTheme.borderSubtle,
+          ),
+        ),
+        child: Text(
+          label,
+          style: SepiaTheme.sans(
+            fontSize: 9,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? SepiaTheme.sage : SepiaTheme.inkSecondary,
+          ),
+        ),
       ),
     );
   }

@@ -275,3 +275,48 @@ func TestModelWeightsEndpoint(t *testing.T) {
 		t.Errorf("Expected error to contain model filename, got: %v", errResp)
 	}
 }
+
+func TestFirebasePolicyEndpoint(t *testing.T) {
+	_, r, _ := setupTestServer(t)
+
+	req := httptest.NewRequest("GET", "/api/policy/firebase", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected status 200 for Firebase policy, got %d", w.Code)
+	}
+
+	engineHeader := w.Header().Get("X-Firebase-Policy-Engine")
+	if engineHeader != "RemoteConfig-v1.4.0" {
+		t.Errorf("Expected X-Firebase-Policy-Engine RemoteConfig-v1.4.0, got: %s", engineHeader)
+	}
+
+	var policy map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&policy); err != nil {
+		t.Fatalf("Failed to decode Firebase policy JSON: %v", err)
+	}
+
+	if policy["version"] != "1.4.0" {
+		t.Errorf("Expected version 1.4.0, got: %v", policy["version"])
+	}
+	if policy["cloud_reasoning_model"] != "gemini-3.8-flash" {
+		t.Errorf("Expected cloud_reasoning_model gemini-3.8-flash, got: %v", policy["cloud_reasoning_model"])
+	}
+
+	rules, ok := policy["rules"].([]interface{})
+	if !ok || len(rules) == 0 {
+		t.Fatalf("Expected non-empty rules list, got: %v", policy["rules"])
+	}
+
+	// Verify priority 100 rule is RULE_STRICT_PRIVACY
+	firstRule := rules[0].(map[string]interface{})
+	if firstRule["id"] != "RULE_STRICT_PRIVACY" {
+		t.Errorf("Expected first rule to be RULE_STRICT_PRIVACY, got: %v", firstRule["id"])
+	}
+	if firstRule["route"] != "EDGE_LOCAL" {
+		t.Errorf("Expected RULE_STRICT_PRIVACY route EDGE_LOCAL, got: %v", firstRule["route"])
+	}
+}
+

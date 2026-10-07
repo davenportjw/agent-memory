@@ -125,6 +125,30 @@ class LocalExecutionManager extends ChangeNotifier {
     }
   }
 
+  /// Short display name for badges, choice cards, and pills.
+  String get activeEngineDisplayShortName {
+    switch (_activeEngine) {
+      case ActiveEdgeEngine.geminiNano:
+        return 'Gemini Nano';
+      case ActiveEdgeEngine.gemma4:
+        return 'Gemma 4';
+      case ActiveEdgeEngine.none:
+        return 'Local Edge';
+    }
+  }
+
+  /// Whether the currently active engine has weights loaded / ready to execute.
+  bool get isActiveEngineReady {
+    switch (_activeEngine) {
+      case ActiveEdgeEngine.geminiNano:
+        return _chromeService.isActive;
+      case ActiveEdgeEngine.gemma4:
+        return _gemmaService.isModelLoaded;
+      case ActiveEdgeEngine.none:
+        return false;
+    }
+  }
+
   /// Friendly short status label for headers and pills.
   String get activeEngineStatusLabel {
     switch (_activeEngine) {

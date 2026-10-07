@@ -170,7 +170,7 @@ class LoreCraftService extends ChangeNotifier {
       speechText: openingSpeech,
       timestamp: DateTime.now(),
       route: ExecutionRoute.EDGE_LOCAL,
-      modelName: 'Gemma 4 int4',
+      modelName: edgeManager.activeEngineName,
       ttftMs: 38,
       latencyMs: 85,
       egressBytes: 0,
@@ -370,8 +370,8 @@ class LoreCraftService extends ChangeNotifier {
         speechText: initialSpokenLine,
         timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
         route: ExecutionRoute.EDGE_LOCAL,
-        modelName: 'Gemma 4 int4',
-        personaModelName: 'Gemma 4 int4 (Edge Local)',
+        modelName: edgeManager.activeEngineName,
+        personaModelName: '${edgeManager.activeEngineName} (Edge Local)',
         arbiterModelName: 'Gemini 3.8 Flash (Game Master)',
         gameMasterCommentary: 'Garrison deployment initialized. Direct tactical choices to reinforce the sector.',
         ttftMs: 44,
@@ -1088,6 +1088,7 @@ class LoreCraftService extends ChangeNotifier {
     final faction = activeNpcFaction;
     final stages = getNpcQuestStages(npc.id);
     final isClimax = currentStage >= 3;
+    final edgeShort = edgeManager.activeEngineDisplayShortName;
 
     final arbiterPrompt = '''
 You are the Game Master AI arbiter for OPERATION AETHER BREACH in Mount Khar-Drak.
@@ -1114,7 +1115,7 @@ Respond strictly with a valid JSON object matching this schema:
       "id": "choice_arbiter_1",
       "label": "Short Action Title",
       "description": "Tactical explanation of what this action attempts.",
-      "consequence": "⚡ On-Device Gemma 4 • Conversational inquiry",
+      "consequence": "⚡ On-Device $edgeShort • Conversational inquiry",
       "intent": "local_dialogue",
       "prompt": "Exact text or question spoken by player",
       "requiresCloud": false
@@ -1123,7 +1124,7 @@ Respond strictly with a valid JSON object matching this schema:
       "id": "choice_arbiter_2",
       "label": "Short Action Title",
       "description": "Tactical physical maneuver.",
-      "consequence": "⚡ On-Device Gemma 4 • Tactical physical action",
+      "consequence": "⚡ On-Device $edgeShort • Tactical physical action",
       "intent": "local_dialogue",
       "prompt": "Exact text spoken by player",
       "requiresCloud": false
@@ -1209,6 +1210,7 @@ Respond strictly with a valid JSON object matching this schema:
       }
 
       final rawChoices = decoded['choices'];
+      final edgeShort = edgeManager.activeEngineDisplayShortName;
       final List<A2UIChoiceItem> choices = [];
       if (rawChoices is List && rawChoices.isNotEmpty) {
         for (int i = 0; i < rawChoices.length && i < 3; i++) {
@@ -1219,7 +1221,7 @@ Respond strictly with a valid JSON object matching this schema:
           final cons = map['consequence']?.toString() ??
               (i == 2
                   ? '☁️ Cloud Nano Banana 2 Lite • Visual Concept Art'
-                  : '⚡ On-Device Gemma 4 • Tactical Faction Maneuver');
+                  : '⚡ On-Device $edgeShort • Tactical Faction Maneuver');
           final intent = map['intent']?.toString() ?? (i == 2 ? 'visual_synthesis' : 'local_dialogue');
           final promptText = map['prompt']?.toString() ?? label;
           final requiresCloud = map['requiresCloud'] == true || intent == 'visual_synthesis' || i == 2;
@@ -1298,14 +1300,15 @@ Respond strictly with a valid JSON object matching this schema:
 
     final npc = npcs.firstWhere((n) => n.id == npcId, orElse: () => activeNpc);
     final faction = factions.firstWhere((f) => f.id == npc.factionId, orElse: () => factions.first);
+    final edgeShort = edgeManager.activeEngineDisplayShortName;
 
     final prompt = '''
 TASK: You are the on-device Game Master AI. Given the ongoing discussion and active mission goal, generate exactly 3 dynamic tactical choices for the player's next turn.
-CRISIS: \${activeMission.title} - \${activeMission.threatLevel}
-CURRENT OBJECTIVE: \$currentGoal
-NPC CONTACT: \${npc.name} (\${npc.title}, Faction: \${faction.name}, Rep: \${faction.reputation})
+CRISIS: ${activeMission.title} - ${activeMission.threatLevel}
+CURRENT OBJECTIVE: $currentGoal
+NPC CONTACT: ${npc.name} (${npc.title}, Faction: ${faction.name}, Rep: ${faction.reputation})
 RECENT DISCUSSION:
-\$latestDiscussion
+$latestDiscussion
 
 REQUIREMENTS:
 Return a JSON array with exactly 3 objects.
@@ -1319,7 +1322,7 @@ Output format:
     "id": "choice_edge_dialogue",
     "label": "Short Action Title",
     "description": "Tactical explanation of what this action attempts.",
-    "consequence": "⚡ On-Device Gemma 4 • Conversational inquiry",
+    "consequence": "⚡ On-Device $edgeShort • Conversational inquiry",
     "intent": "local_dialogue",
     "prompt": "Exact text or question spoken by player",
     "requiresCloud": false
@@ -1328,7 +1331,7 @@ Output format:
     "id": "choice_edge_tactical",
     "label": "Short Action Title",
     "description": "Tactical explanation of what this action attempts.",
-    "consequence": "⚡ On-Device Gemma 4 • Tactical physical action",
+    "consequence": "⚡ On-Device $edgeShort • Tactical physical action",
     "intent": "local_dialogue",
     "prompt": "Exact text or tactical action spoken by player",
     "requiresCloud": false
@@ -1431,6 +1434,7 @@ Output format:
   ) {
     final lowerDiscussion = latestDiscussion.toLowerCase();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final edgeShort = edgeManager.activeEngineDisplayShortName;
 
     if (npc.id == 'gideon') {
       final isPressureOrCore = lowerDiscussion.contains('pressure') || lowerDiscussion.contains('core') || lowerDiscussion.contains('rupture') || lowerDiscussion.contains('tremor');
@@ -1441,7 +1445,7 @@ Output format:
           description: isPressureOrCore
               ? 'Probe Gideon on the thermal limits of the high-carbon mithril bulkheads.'
               : 'Question the quartermaster regarding current steel supply shipments and troll movements.',
-          consequence: '⚡ On-Device Gemma 4 • Iron Vanguard Tactical Intelligence',
+          consequence: '⚡ On-Device $edgeShort • Iron Vanguard Tactical Intelligence',
           intent: 'local_dialogue',
           prompt: isPressureOrCore
               ? 'Show me the thermal telemetry on the central bulkhead. How many minutes until the seal buckles?'
@@ -1452,7 +1456,7 @@ Output format:
           id: 'dynamic-gideon-tac-$timestamp',
           label: 'Reinforce Seismic Sluice Locks',
           description: 'Manually lock down the auxiliary pressure relief valves with heavy forging tongs.',
-          consequence: '⚡ On-Device Gemma 4 • +4 Vanguard Rep, -2 Syndicate Water Stability',
+          consequence: '⚡ On-Device $edgeShort • +4 Vanguard Rep, -2 Syndicate Water Stability',
           intent: 'local_dialogue',
           prompt: 'I will hold the hydraulic levers. Lock down the primary relief valve and divert the initial shockwave into the bedrock.',
           requiresCloud: false,
@@ -1476,7 +1480,7 @@ Output format:
           description: isWaterOrSlag
               ? 'Press Lyra for the cryptographic frequencies needed to override the Foundry\'s bypass locks.'
               : 'Seek information on underground escape tunnels and contraband supply routes beneath the docks.',
-          consequence: '⚡ On-Device Gemma 4 • Shadow Syndicate Covert Intel',
+          consequence: '⚡ On-Device $edgeShort • Shadow Syndicate Covert Intel',
           intent: 'local_dialogue',
           prompt: isWaterOrSlag
               ? 'What cipher key do the Vanguard engineers use to seal the lower aqueduct gates?'
@@ -1487,7 +1491,7 @@ Output format:
           id: 'dynamic-lyra-tac-$timestamp',
           label: 'Deploy Counter-Surveillance Shunt',
           description: 'Jam the Vanguard\'s acoustic listening needles to mask our movement through the water tunnels.',
-          consequence: '⚡ On-Device Gemma 4 • +4 Syndicate Rep, Prevents Ambush',
+          consequence: '⚡ On-Device $edgeShort • +4 Syndicate Rep, Prevents Ambush',
           intent: 'local_dialogue',
           prompt: 'Drop the sonic dampeners into the drainage channel. We can move past the Vanguard patrols without alerting the surface.',
           requiresCloud: false,
@@ -1512,7 +1516,7 @@ Output format:
           description: isFloraOrResonance
               ? 'Inquire about how crystalline resonant lichen can absorb high-energy tectonic flux.'
               : 'Ask Elion about historical precedents when the World Tree survived volcanic seismic tremors.',
-          consequence: '⚡ On-Device Gemma 4 • Sylvan Enclave Ecological Intel',
+          consequence: '⚡ On-Device $edgeShort • Sylvan Enclave Ecological Intel',
           intent: 'local_dialogue',
           prompt: isFloraOrResonance
               ? 'How do the crystalline spires ground the flux without causing harmonic fracture in the upper canopy?'
@@ -1523,7 +1527,7 @@ Output format:
           id: 'dynamic-elion-tac-$timestamp',
           label: 'Attune Resonant Keystone Array',
           description: 'Align the celestial astrological rings on the Keystone Spire to channel ambient energy.',
-          consequence: '⚡ On-Device Gemma 4 • +4 Enclave Rep, Leyline Stabilization',
+          consequence: '⚡ On-Device $edgeShort • +4 Enclave Rep, Leyline Stabilization',
           intent: 'local_dialogue',
           prompt: 'Turn the inner astrological ring fifteen degrees counter-clockwise to match the leyline pulse.',
           requiresCloud: false,
@@ -2056,8 +2060,8 @@ Respond directly in character as ${npc.name}. Inspect and react to this newly ma
         speechText: greeting,
         timestamp: DateTime.now(),
         route: ExecutionRoute.EDGE_LOCAL,
-        modelName: 'Gemma 4 int4',
-        personaModelName: 'Gemma 4 int4 (Edge Local)',
+        modelName: edgeManager.activeEngineName,
+        personaModelName: '${edgeManager.activeEngineName} (Edge Local)',
         arbiterModelName: 'Gemini 3.8 Flash (Game Master)',
         gameMasterCommentary: 'Sector contact established. Direct tactical choices to reinforce the sector.',
         ttftMs: 38,

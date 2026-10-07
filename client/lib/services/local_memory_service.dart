@@ -248,18 +248,20 @@ class LocalMemoryService {
     try {
       final client = http.Client();
 
-      // Step 1: Ingest pending turns to Cloud Run
-      for (final episode in _ingestionQueue) {
+      // Step 1: Ingest pending turns to Cloud Run in a single batch request
+      if (_ingestionQueue.isNotEmpty) {
         final ingestUri = Uri.parse('$baseUrl/api/memory/ingest');
         final ingestRes = await client.post(
           ingestUri,
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(episode.toJson()),
+          body: jsonEncode({'turns': _ingestionQueue.map((e) => e.toJson()).toList()}),
         );
         if (ingestRes.statusCode != 200) {
           throw Exception('Backend /api/memory/ingest failed: ${ingestRes.statusCode} ${ingestRes.body}');
         }
-        episode.status = 'CONSOLIDATED';
+        for (final episode in _ingestionQueue) {
+          episode.status = 'CONSOLIDATED';
+        }
       }
 
       // Step 2: Trigger Gemini 3.8 Flash offline consolidation loop on Cloud Run
@@ -393,16 +395,24 @@ class LocalMemoryService {
     final idx = _durableNodes.indexWhere((n) => n.id == nodeId);
     if (idx == -1) return;
     final node = _durableNodes[idx];
-    final updatedContradictions = List<String>.from(node.resolvedContradictions)..remove(contradictionText);
-    
-    // If there's a matching record, we can revert the summary or note that it was reverted
-    String newSummary = node.summary;
-    final matchingRecord = node.contradictionRecords.where((r) => contradictionText.contains('FP16') || r.priorDirective.contains('FP16')).firstOrNull;
+
+    final matchingRecord = node.contradictionRecords.where((r) =>
+        r.priorDirective == contradictionText ||
+        r.activeDirective == contradictionText ||
+        contradictionText.contains(r.priorDirective) ||
+        r.id == contradictionText,
+    ).firstOrNull ?? node.contradictionRecords.lastOrNull;
+
+    final newSummary = matchingRecord != null
+        ? 'Reverted to prior directive: ${matchingRecord.priorDirective}'
+        : node.summary;
+
+    final updatedRecords = List<ContradictionRecord>.from(node.contradictionRecords);
     if (matchingRecord != null) {
-      newSummary = 'Reverted to prior directive: ${matchingRecord.priorDirective}';
+      updatedRecords.remove(matchingRecord);
     }
 
-    final updatedRecords = node.contradictionRecords.where((r) => !r.priorDirective.contains('FP16')).toList();
+    final updatedContradictions = List<String>.from(node.resolvedContradictions)..remove(contradictionText);
 
     _durableNodes[idx] = DurableKnowledgeNode(
       id: node.id,
@@ -416,6 +426,7 @@ class LocalMemoryService {
       contradictionRecords: updatedRecords,
       lastUpdated: DateTime.now(),
     );
+    repackLocalEdgeBundle();
     notifyListeners();
   }
 
@@ -448,7 +459,7 @@ class LocalMemoryService {
   }
 
   /// Prunes working context turns beyond retainCount, returning actual freed bytes.
-  int pruneWorkingContext({int retainCount = 5}) {
+  int pruneWorkingContext({int retainCount = 1}) {
     if (_workingContext.length <= retainCount) {
       return 0;
     }
@@ -585,6 +596,76 @@ class LocalMemoryService {
     _activeTaskContext = null;
     _initializeDefaultMemoryState();
     _simulationLogs.insert(0, '[Reset] Memory state, boot index, and edge bundle reset to default baseline.');
+    notifyListeners();
+  }
+
+  /// Appends a turn directly to the ingestion queue (used for testing and queue staging)
+  void seedIngestionTurn(EpisodicTurn turn) {
+    _ingestionQueue.add(turn);
+    notifyListeners();
+  }
+
+  /// Clears pending turns in the ingestion queue
+  void clearIngestionQueue() {
+    _ingestionQueue.clear();
+    notifyListeners();
+  }
+
+  /// Adds a durable knowledge node directly into graph memory
+  void addDurableNode(DurableKnowledgeNode node) {
+    _durableNodes.insert(0, node);
+    notifyListeners();
+  }
+
+  /// Seeds or registers a topic entry in MasterIndex and ground truth repository
+  void seedTopicEntry({
+    required String topicId,
+    required String title,
+    required String category,
+    String summaryScope = 'Topic summary scope',
+    int byteSize = 3100,
+    int tokenEstimate = 350,
+    bool isCachedLocally = true,
+    MemoryTopicFile? topicFile,
+  }) {
+    final entry = MasterIndexEntry(
+      topicId: topicId,
+      title: title,
+      category: category,
+      summaryScope: summaryScope,
+      byteSize: byteSize,
+      tokenEstimate: tokenEstimate,
+      versionHash: 'hash-$topicId',
+      isCachedLocally: isCachedLocally,
+      lastUpdated: DateTime.now(),
+    );
+    final file = topicFile ??
+        _groundTruthTopics[topicId] ??
+        MemoryTopicFile(
+          topicId: topicId,
+          title: title,
+          category: category,
+          fullContent: 'Content for $title',
+          versionHash: 'hash-$topicId',
+          lastConsolidatedAt: DateTime.now(),
+          byteSize: byteSize,
+          tags: [topicId, category.toLowerCase()],
+        );
+    _groundTruthTopics[topicId] = file;
+    if (isCachedLocally) {
+      _localTopicCache[topicId] = file;
+    } else {
+      _localTopicCache.remove(topicId);
+    }
+    final existingIdx = _masterIndex.entries.indexWhere((e) => e.topicId == topicId);
+    final updatedEntries = List<MasterIndexEntry>.from(_masterIndex.entries);
+    if (existingIdx >= 0) {
+      updatedEntries[existingIdx] = entry;
+    } else {
+      updatedEntries.add(entry);
+    }
+    _masterIndex = _masterIndex.copyWith(entries: updatedEntries);
+    _bootState = _bootState.copyWith(masterIndex: _masterIndex);
     notifyListeners();
   }
 
@@ -1753,6 +1834,19 @@ class LocalMemoryService {
   }
 
   static final Map<String, MemoryTopicFile> _groundTruthTopics = {
+    'lore-factions': MemoryTopicFile(
+      topicId: 'lore-factions',
+      title: 'Khar-Drak Factions & Political Treaties',
+      category: 'TACTICAL_SECURITY',
+      fullContent: '### Khar-Drak Factions & Political Treaties\n'
+          '- **Iron Vanguard**: Martial rulers holding the Upper Foundry.\n'
+          '- **Shadow Syndicate**: Guild controlling water conduits and trade.\n'
+          '- **Arcane Enclave**: Scholars tuning the Keystone Spire.',
+      versionHash: 'hash-lfc-01a',
+      lastConsolidatedAt: DateTime.now().subtract(const Duration(hours: 3)),
+      byteSize: 3100,
+      tags: ['factions', 'lore', 'treaties', 'vanguard', 'syndicate'],
+    ),
     'iron_vanguard_ciphers': MemoryTopicFile(
       topicId: 'iron_vanguard_ciphers',
       title: 'Iron Vanguard Valve Ciphers',

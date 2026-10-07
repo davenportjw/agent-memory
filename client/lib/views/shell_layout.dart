@@ -18,6 +18,7 @@ import 'feature_synthesizer_view.dart';
 import 'lorecraft_studio.dart';
 import 'lorecraft_boot_page_view.dart';
 import 'architecture_notebook_view.dart';
+import 'widgets/edge_inference_sheet.dart';
 import '../services/lorecraft_service.dart';
 import '../services/app_mode_service.dart';
 import 'widgets/app_mode_slider.dart';
@@ -736,9 +737,9 @@ class _ShellLayoutState extends State<ShellLayout> {
             ),
           ),
 
-          // Bottom Telemetry & Status Footer
+          // Bottom Telemetry & Status Footer (Interactive Edge & Cloud Hub)
           Container(
-            padding: EdgeInsets.all(isCollapsed ? 8 : 12),
+            padding: EdgeInsets.all(isCollapsed ? 8 : 10),
             decoration: const BoxDecoration(
               color: SepiaTheme.paper,
               border: Border(top: BorderSide(color: SepiaTheme.border)),
@@ -754,12 +755,12 @@ class _ShellLayoutState extends State<ShellLayout> {
                   if (_edgeManager.isGeminiNanoActive) {
                     edgeDotColor = SepiaTheme.sage;
                     edgeLabelText = 'Gemini Nano: Active (0 KB)';
-                  } else if (_edgeManager.isCreatingModel) {
+                  } else if (_edgeManager.isCreatingModel || _edgeManager.isGeminiNanoDownloading) {
                     edgeDotColor = SepiaTheme.terracotta;
                     edgeLabelText = 'Gemini Nano: Initializing...';
                   } else if (_edgeManager.isGeminiNanoNeedsDownload) {
                     edgeDotColor = SepiaTheme.amber;
-                    edgeLabelText = 'Gemini Nano: Weights Pending';
+                    edgeLabelText = 'Gemini Nano: Needs Load';
                   } else if (_edgeManager.isGeminiNanoAvailable) {
                     edgeDotColor = SepiaTheme.amber;
                     edgeLabelText = 'Gemini Nano: Flag Set (Unready)';
@@ -768,16 +769,22 @@ class _ShellLayoutState extends State<ShellLayout> {
                     edgeLabelText = 'Gemini Nano: Flag Needed';
                   }
                 } else {
-                  if (_edgeManager.selectedEngine == EdgeEngineSelection.auto && !_edgeManager.isGeminiNanoActive) {
+                  if (_edgeManager.isGemmaWeightsLoaded) {
                     edgeDotColor = SepiaTheme.sage;
                     edgeLabelText = _gemmaService.isWebGPUAvailable
-                        ? 'Gemma 4: WebGPU (Auto Fallback)'
-                        : 'Gemma 4: LiteRT (Auto Fallback)';
-                  } else {
-                    edgeDotColor = _gemmaService.isWebGPUAvailable ? SepiaTheme.sage : SepiaTheme.amber;
-                    edgeLabelText = _gemmaService.isWebGPUAvailable
                         ? 'Gemma 4: WebGPU Active'
-                        : 'Gemma 4: LiteRT CPU';
+                        : 'Gemma 4: LiteRT Active';
+                  } else if (_gemmaService.isDownloading) {
+                    edgeDotColor = SepiaTheme.amber;
+                    edgeLabelText = 'Gemma 4: Downloading...';
+                  } else if (_edgeManager.selectedEngine == EdgeEngineSelection.auto && !_edgeManager.isGeminiNanoActive) {
+                    edgeDotColor = SepiaTheme.sage;
+                    edgeLabelText = _gemmaService.isWebGPUAvailable
+                        ? 'Gemma 4: Auto Fallback'
+                        : 'Gemma 4: LiteRT Fallback';
+                  } else {
+                    edgeDotColor = _gemmaService.isWebGPUAvailable ? SepiaTheme.amber : SepiaTheme.inkMuted;
+                    edgeLabelText = 'Gemma 4: Tap to Load';
                   }
                 }
 
@@ -785,17 +792,24 @@ class _ShellLayoutState extends State<ShellLayout> {
                   return Column(
                     children: [
                       Tooltip(
-                        message: edgeLabelText,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: edgeDotColor,
-                            shape: BoxShape.circle,
+                        message: '$edgeLabelText\nTap to configure edge AI',
+                        child: InkWell(
+                          onTap: () => EdgeInferenceSheet.show(context, _edgeManager),
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: edgeDotColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Tooltip(
                         message: isCloudOnline ? 'Gemini 3.8 Flash: Live' : 'Gemini 3.8 Flash: Degraded',
                         child: Container(
@@ -814,54 +828,79 @@ class _ShellLayoutState extends State<ShellLayout> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
+                    // Interactive On-Device Edge Tile
+                    Tooltip(
+                      message: 'Tap to configure or load edge inference engine (Auto, Gemini Nano, Gemma 4)',
+                      child: InkWell(
+                        onTap: () => EdgeInferenceSheet.show(context, _edgeManager),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                           decoration: BoxDecoration(
-                            color: edgeDotColor,
-                            shape: BoxShape.circle,
+                            color: SepiaTheme.paperSubtle,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: SepiaTheme.borderSubtle),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  color: edgeDotColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  edgeLabelText,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: SepiaTheme.mono(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: edgeDotColor,
+                                  ),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.tune_rounded,
+                                size: 12,
+                                color: SepiaTheme.inkMuted,
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            edgeLabelText,
-                            overflow: TextOverflow.ellipsis,
-                            style: SepiaTheme.mono(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: edgeDotColor,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: isCloudOnline ? SepiaTheme.sage : SepiaTheme.terracotta,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            isCloudOnline ? 'Gemini 3.8 Flash: Live' : 'Gemini 3.8 Flash: Degraded',
-                            overflow: TextOverflow.ellipsis,
-                            style: SepiaTheme.mono(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                    const SizedBox(height: 6),
+                    // Cloud Status Row
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
                               color: isCloudOnline ? SepiaTheme.sage : SepiaTheme.terracotta,
+                              shape: BoxShape.circle,
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              isCloudOnline ? 'Gemini 3.8 Flash: Live' : 'Gemini 3.8 Flash: Degraded',
+                              overflow: TextOverflow.ellipsis,
+                              style: SepiaTheme.mono(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: isCloudOnline ? SepiaTheme.sage : SepiaTheme.terracotta,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 );

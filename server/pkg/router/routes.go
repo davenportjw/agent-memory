@@ -1,6 +1,7 @@
 package router
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -119,6 +120,7 @@ type Server struct {
 	cfg          *config.Config
 	vertexClient vertex.Client
 	store        memory.Store
+	MemoryStore  memory.Store
 	consolidator *memory.Consolidator
 	bundler      *memory.Bundler
 	rater        *eval.Rater
@@ -143,6 +145,7 @@ func NewServer(cfg *config.Config, vClient vertex.Client, store memory.Store, ra
 		cfg:          cfg,
 		vertexClient: vClient,
 		store:        store,
+		MemoryStore:  store,
 		consolidator: memory.NewConsolidator(cfg, vClient, store),
 		bundler:      memory.NewBundler(cfg, store),
 		rater:        rater,
@@ -502,23 +505,63 @@ func (s *Server) HandleImageGenerate(w http.ResponseWriter, r *http.Request) {
 
 // HandleMemoryIngest ingests client-generated or edge episodic turns.
 func (s *Server) HandleMemoryIngest(w http.ResponseWriter, r *http.Request) {
-	var req models.MemoryIngestRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request JSON: " + err.Error()})
+	if r.Body == nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Empty request body"})
+		return
+	}
+	defer r.Body.Close()
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Failed to read request body: " + err.Error()})
+		return
+	}
+
+	trimmed := bytes.TrimSpace(bodyBytes)
+	if len(trimmed) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "No turns provided in payload"})
 		return
 	}
 
 	var turnsToIngest []models.EpisodicTurn
-	if req.Turn != nil {
-		turnsToIngest = append(turnsToIngest, *req.Turn)
-	}
-	if len(req.Turns) > 0 {
-		turnsToIngest = append(turnsToIngest, req.Turns...)
+
+	// 1. Raw array JSON: [{"id": ...}]
+	if trimmed[0] == '[' {
+		var rawList []models.EpisodicTurn
+		if err := json.Unmarshal(trimmed, &rawList); err == nil && len(rawList) > 0 {
+			turnsToIngest = append(turnsToIngest, rawList...)
+		}
+	} else if trimmed[0] == '{' {
+		// 2. Standard envelope: {"turns": [...]} or {"turn": {...}}
+		var req models.MemoryIngestRequest
+		if err := json.Unmarshal(trimmed, &req); err == nil {
+			if req.Turn != nil {
+				turnsToIngest = append(turnsToIngest, *req.Turn)
+			}
+			if len(req.Turns) > 0 {
+				turnsToIngest = append(turnsToIngest, req.Turns...)
+			}
+		}
+
+		// 3. Fallback: if req.Turn == nil && len(req.Turns) == 0, attempt fallback decoding of raw models.EpisodicTurn
+		if len(turnsToIngest) == 0 {
+			var flat models.EpisodicTurn
+			if err := json.Unmarshal(trimmed, &flat); err == nil {
+				if flat.ID != "" || flat.SessionID != "" || flat.UserPrompt != "" || flat.ModelResponse != "" {
+					turnsToIngest = append(turnsToIngest, flat)
+				}
+			}
+		}
 	}
 
 	if len(turnsToIngest) == 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "No turns provided in payload"})
 		return
+	}
+
+	targetStore := s.MemoryStore
+	if targetStore == nil {
+		targetStore = s.store
 	}
 
 	ingestedIDs := make([]string, 0, len(turnsToIngest))
@@ -541,10 +584,18 @@ func (s *Server) HandleMemoryIngest(w http.ResponseWriter, r *http.Request) {
 			turn.IsPIISanitized = true
 		}
 
-		if err := s.store.SaveEpisodicTurn(r.Context(), turn); err != nil {
+		if err := targetStore.SaveEpisodicTurn(r.Context(), turn); err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to persist turn: " + err.Error()})
 			return
 		}
+
+		// Mark consolidated appropriately
+		if turn.Consolidated {
+			if err := targetStore.MarkTurnsConsolidated(r.Context(), []string{turn.ID}); err != nil {
+				log.Printf("[Router] Failed to mark turn %s as consolidated: %v", turn.ID, err)
+			}
+		}
+
 		ingestedIDs = append(ingestedIDs, turn.ID)
 	}
 

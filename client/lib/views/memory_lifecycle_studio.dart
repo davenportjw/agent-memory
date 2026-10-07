@@ -143,15 +143,27 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
     );
   }
 
-  void _handlePrefetchTopic(String topicId) {
-    widget.memoryService.fetchMemoryTopic(topicId);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('📥 Topic "$topicId" prefetched from cloud dream into local SQLite cache.'),
-        backgroundColor: SepiaTheme.amber,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+  Future<void> _handlePrefetchTopic(String topicId) async {
+    try {
+      await widget.memoryService.fetchMemoryTopic(topicId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('📥 Topic "$topicId" prefetched from cloud dream into local SQLite cache.'),
+          backgroundColor: SepiaTheme.amber,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⚠️ Failed to prefetch topic "$topicId": $e'),
+          backgroundColor: SepiaTheme.terracotta,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   void _handleEvictTopic(String topicId) {
@@ -166,14 +178,24 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
   }
 
   void _handlePruneContext(BuildContext context) {
-    widget.memoryService.pruneWorkingContext(retainCount: 3);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🧹 Pruned working context: retained newest 3 turns (LRU).'),
-        backgroundColor: SepiaTheme.sage,
-        duration: Duration(seconds: 3),
-      ),
-    );
+    final freed = widget.memoryService.pruneWorkingContext(retainCount: 1);
+    if (freed > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🧹 Pruned working context: freed $freed bytes (retained newest 1 turn).'),
+          backgroundColor: SepiaTheme.sage,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ℹ️ Working context is already at minimum (1 turn retained).'),
+          backgroundColor: SepiaTheme.amber,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   @override
@@ -249,7 +271,7 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
                     );
                   },
                   onBudgetPressure: () {
-                    widget.memoryService.simulateBudgetPressure(15);
+                    widget.memoryService.simulateBudgetPressure(260);
                   },
                   onToggleOffline: () {
                     widget.memoryService.simulateOfflinePartition(!widget.memoryService.isOfflinePartition);
@@ -272,6 +294,8 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
   Widget _buildStudioHeader(CompactEdgeMemoryBundle? bundle, bool isWithinBudget, bool isMobile) {
     final sizeKb = bundle?.sizeKb ?? 0.0;
     final budgetFraction = (sizeKb / 50.0).clamp(0.0, 1.0);
+    final isQueueEmpty = widget.memoryService.ingestionQueue.isEmpty;
+    final isConsolidating = widget.memoryService.isConsolidating;
 
     return Card(
       color: SepiaTheme.paper,
@@ -331,15 +355,21 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
                 if (!isMobile) ...[
                   const SizedBox(width: 16),
                   ElevatedButton.icon(
-                    onPressed: widget.memoryService.isConsolidating ? null : _handleConsolidate,
-                    icon: widget.memoryService.isConsolidating
+                    onPressed: (isConsolidating || isQueueEmpty) ? null : _handleConsolidate,
+                    icon: isConsolidating
                         ? const SizedBox(
                             width: 14,
                             height: 14,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Icon(Icons.sync_rounded, size: 16),
-                    label: Text(widget.memoryService.isConsolidating ? 'Consolidating...' : 'Consolidate (Cloud Run)'),
+                        : Icon(isQueueEmpty ? Icons.check_circle_outline_rounded : Icons.sync_rounded, size: 16),
+                    label: Text(
+                      isConsolidating
+                          ? 'Consolidating...'
+                          : isQueueEmpty
+                              ? 'Consolidated (Queue Empty)'
+                              : 'Consolidate (Cloud Run)',
+                    ),
                   ),
                 ],
               ],
@@ -413,15 +443,21 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: widget.memoryService.isConsolidating ? null : _handleConsolidate,
-                  icon: widget.memoryService.isConsolidating
+                  onPressed: (isConsolidating || isQueueEmpty) ? null : _handleConsolidate,
+                  icon: isConsolidating
                       ? const SizedBox(
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Icon(Icons.sync_rounded, size: 16),
-                  label: Text(widget.memoryService.isConsolidating ? 'Consolidating...' : 'Consolidate (Cloud Run)'),
+                      : Icon(isQueueEmpty ? Icons.check_circle_outline_rounded : Icons.sync_rounded, size: 16),
+                  label: Text(
+                    isConsolidating
+                        ? 'Consolidating...'
+                        : isQueueEmpty
+                            ? 'Consolidated (Queue Empty)'
+                            : 'Consolidate (Cloud Run)',
+                  ),
                 ),
               ),
             ],
@@ -1087,7 +1123,7 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
         backgroundColor: SepiaTheme.canvas,
         title: Text('Prune Working Context (LRU)', style: SepiaTheme.sans(fontSize: 16, fontWeight: FontWeight.w700)),
         content: Text(
-          'Prunes local working context turns beyond the retain count (5 turns), freeing memory headroom while preserving recent episodic state.',
+          'Prunes local working context turns beyond the retain count (1 turn), freeing memory headroom while preserving recent episodic state.',
           style: SepiaTheme.sans(fontSize: 13, color: SepiaTheme.inkSecondary),
         ),
         actions: [
@@ -1097,15 +1133,25 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
           ),
           ElevatedButton(
             onPressed: () {
-              final freed = widget.memoryService.pruneWorkingContext(retainCount: 5);
+              final freed = widget.memoryService.pruneWorkingContext(retainCount: 1);
               Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Pruned working context: freed $freed bytes.'),
-                  backgroundColor: SepiaTheme.sage,
-                  duration: const Duration(seconds: 3),
-                ),
-              );
+              if (freed > 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('🧹 Pruned working context: freed $freed bytes (retained newest 1 turn).'),
+                    backgroundColor: SepiaTheme.sage,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('ℹ️ Working context is already at minimum (1 turn retained).'),
+                    backgroundColor: SepiaTheme.amber,
+                    duration: Duration(seconds: 3),
+                  ),
+                );
+              }
             },
             child: const Text('Prune'),
           ),
@@ -1118,13 +1164,15 @@ class _MemoryLifecycleStudioState extends State<MemoryLifecycleStudio> {
     ContradictionRecord? matchingRecord;
     for (final r in node.contradictionRecords) {
       if (r.priorDirective == contradictionText ||
-          (contradictionText.contains('FP16') && r.priorDirective.contains('FP16'))) {
+          r.activeDirective == contradictionText ||
+          contradictionText.contains(r.priorDirective) ||
+          r.id == contradictionText) {
         matchingRecord = r;
         break;
       }
     }
     if (matchingRecord == null && node.contradictionRecords.isNotEmpty) {
-      matchingRecord = node.contradictionRecords.first;
+      matchingRecord = node.contradictionRecords.last;
     }
 
     final priorDirective = matchingRecord?.priorDirective ?? contradictionText;

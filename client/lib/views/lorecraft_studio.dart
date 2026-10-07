@@ -412,6 +412,7 @@ class _LoreCraftStudioState extends State<LoreCraftStudio> {
               LoreCraftRouterDial(
                 selectedMode: s.routerModeOverride,
                 onModeSelected: (mode) => s.setRouterModeOverride(mode),
+                edgeManager: s.edgeManager,
               ),
             ],
             const SizedBox(height: 14),
